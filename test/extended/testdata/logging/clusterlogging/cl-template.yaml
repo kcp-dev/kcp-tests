@@ -1,0 +1,53 @@
+kind: Template
+apiVersion: template.openshift.io/v1
+metadata:
+  name: clusterlogging-template
+objects:
+- kind: "ClusterLogging"
+  apiVersion: "logging.openshift.io/v1"
+  metadata:
+    name: ${NAME}
+    namespace: ${NAMESPACE}
+  spec:
+    managementState: "Managed"
+    logStore:
+      type: "elasticsearch"
+      retentionPolicy:
+        application:
+          maxAge: ${APP_LOG_MAX_AGE}
+        infra:
+          maxAge: ${INFRA_LOG_MAX_AGE}
+        audit:
+          maxAge: ${AUDIT_LOG_MAX_AGE}
+      elasticsearch:
+        nodeCount: ${{ES_NODE_COUNT}}
+        redundancyPolicy: ${REDUNDANCY_POLICY}
+        resources:
+          requests:
+            memory: "1Gi"
+        storage: {}
+    visualization:
+      type: "kibana"
+      kibana:
+        replicas: 1
+    collection:
+      logs:
+        type: ${COLLECTOR}
+        fluentd: {}
+parameters:
+  - name: NAME
+    value: "instance"
+  - name: NAMESPACE
+    value: "openshift-logging"
+  - name: ES_NODE_COUNT
+    value: "1"
+  - name: REDUNDANCY_POLICY
+    value: "ZeroRedundancy"
+  - name: APP_LOG_MAX_AGE
+    value: "3h"
+  - name: INFRA_LOG_MAX_AGE
+    value: "3h"
+  - name: AUDIT_LOG_MAX_AGE
+    value: "3h"
+  - name: COLLECTOR
+    value: fluentd

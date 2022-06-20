@@ -1,0 +1,27 @@
+﻿apiVersion: template.openshift.io/v1
+kind: Template
+metadata:
+  name: deployment-template
+objects:
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: "${NAME}"
+  spec:
+    selector:
+      matchLabels:
+        app: httpd
+    replicas: 3
+    template:
+      metadata:
+        labels:
+          app: httpd
+      spec:
+        containers:
+          - name: httpd
+            image: >-
+              image-registry.openshift-image-registry.svc:5000/openshift/httpd:latest
+            ports:
+              - containerPort: 8080
+parameters:
+- name: NAME

@@ -1,0 +1,38 @@
+apiVersion: template.openshift.io/v1
+kind: Template
+metadata:
+  name: storage-pod-template
+objects:
+  # Pod
+- kind: Pod
+  apiVersion: v1
+  metadata:
+    name: ${PODNAME}
+    namespace: ${PODNAMESPACE}
+  spec:
+    nodeSelector:
+        nodeName: ultrassd
+    containers:
+    - image: ${PODIMAGE} # default: quay.io/openshifttest/hello-openshift@sha256:b1aabe8c8272f750ce757b6c4263a2712796297511e0c6df79144ee188933623
+      name: ${PODNAME}
+      ${VOLUMETYPE}:
+      - name: data
+        ${PATHTYPE}: ${PODMOUNTPATH}
+    volumes:
+    - name: data
+      persistentVolumeClaim:
+        claimName: ${PVCNAME}
+    tolerations:
+    - key: mapi
+      value: mapi_test
+      effect: NoSchedule
+parameters:
+- name: PVCNAME
+- name: PODNAME
+- name: PODNAMESPACE
+- name: PODIMAGE
+- name: VOLUMETYPE
+- name: PATHTYPE
+- name: PODMOUNTPATH
+
+

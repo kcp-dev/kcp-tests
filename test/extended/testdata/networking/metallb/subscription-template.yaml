@@ -1,0 +1,23 @@
+apiVersion: template.openshift.io/v1
+kind: Template
+metadata:
+  name: metallb-subscription-template
+objects:
+- kind: Subscription
+  apiVersion: operators.coreos.com/v1alpha1
+  metadata:
+    name: "${SUBSCRIPTIONNAME}"
+    namespace: "${NAMESPACE}"
+  spec:
+    name: "${OPERATORNAME}"
+    channel: "${CHANNEL}"
+    source: "${CATALOGSOURCE}"
+    sourceNamespace: "${CATALOGSOURCENAMESPACE}"
+parameters:
+- name: OPERATORNAME
+  value: "metallb-operator"
+- name: SUBSCRIPTIONNAME
+- name: NAMESPACE
+- name: CHANNEL
+- name: CATALOGSOURCE
+- name: CATALOGSOURCENAMESPACE

@@ -1,0 +1,50 @@
+kind: Template
+apiVersion: template.openshift.io/v1
+metadata:
+  name: clusterlogforwarder-template
+objects:
+- apiVersion: logging.openshift.io/v1
+  kind: ClusterLogForwarder
+  metadata:
+    name: ${NAME}
+    namespace: ${NAMESPACE}
+  spec:
+    outputs:
+    - name: loki-app
+      type: loki
+      url: http://${GATEWAY_SVC}/api/logs/v1/application
+      secret:
+        name: ${SECRET}
+    - name: loki-infra
+      type: loki
+      url: http://${GATEWAY_SVC}/api/logs/v1/infrastructure
+      secret:
+        name: ${SECRET}
+    - name: loki-audit
+      type: loki
+      url: http://${GATEWAY_SVC}/api/logs/v1/audit
+      secret:
+        name: ${SECRET}
+    pipelines:
+    - name: infro-to-loki
+      inputRefs:
+      - infrastructure
+      outputRefs:
+      - loki-infra
+    - name: app-to-loki
+      inputRefs:
+      - application
+      outputRefs:
+      - loki-app
+    - name: audit-to-loki
+      inputRefs:
+      - audit
+      outputRefs:
+      - loki-audit
+parameters:
+- name: NAME
+  value: "instance"
+- name: NAMESPACE
+  value: "openshift-logging"
+- name: GATEWAY_SVC
+- name: SECRET

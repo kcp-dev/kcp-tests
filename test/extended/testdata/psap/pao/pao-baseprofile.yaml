@@ -1,0 +1,27 @@
+apiVersion: template.openshift.io/v1
+kind: Template
+metadata:
+  name: pao-template
+objects:
+  - apiVersion: performance.openshift.io/v2
+    kind: PerformanceProfile
+    metadata:
+      name: pao-baseprofile
+    spec:
+      cpu:
+       isolated: "1-3"
+       reserved: "0"
+      hugepages:
+        defaultHugepagesSize: 1G
+        pages:
+        - count: 1
+          size: 1G
+      realTimeKernel:
+       enabled: ${{ISENABLED}}
+      numa:
+       topologyPolicy: "best-effort"
+      nodeSelector:
+       node-role.kubernetes.io/worker-pao: ""
+parameters:
+  - name: ISENABLED
+

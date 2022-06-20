@@ -1,0 +1,58 @@
+apiVersion: template.openshift.io/v1
+kind: Template
+metadata:
+  name: service-template
+objects:
+- kind: ReplicationController 
+  apiVersion: v1
+  metadata:
+    labels:
+      name: "${NAME}"
+    namespace: "${NAMESPACE}"
+    name: "${NAME}"
+  spec:
+    replicas: 2
+    selector:
+      name: "${NAME}"
+    template:
+      metadata:
+        labels:
+          name: "${NAME}"
+        namespace: "${NAMESPACE}"
+      spec:
+          containers:
+          - image: quay.io/openshifttest/hello-sdn@sha256:2af5b5ec480f05fda7e9b278023ba04724a3dd53a296afcd8c13f220dec52197
+            name: "${NAME}"
+            ports:
+            - containerPort: 8080
+              protocol: TCP
+            resources:
+              limits:
+                cpu: 200m
+                memory: 256Mi
+              requests:
+                cpu: 100m
+                memory: 256Mi
+            terminationMessagePath: /dev/termination-log
+          dnsPolicy: ClusterFirst
+          restartPolicy: Always
+          securityContext: {}
+          terminationGracePeriodSeconds: 30
+- kind: Service
+  apiVersion: v1
+  metadata:
+    name: "${NAME}"
+    namespace: "${NAMESPACE}"
+  spec:
+    ports:
+    - port: 80
+      targetPort: 8080
+      protocol: TCP
+    selector:
+      name: "${NAME}"
+    type: LoadBalancer
+    externalTrafficPolicy: "${EXTERNALTRAFFICPOLICY}"
+parameters:
+- name: NAME
+- name: NAMESPACE
+- name: EXTERNALTRAFFICPOLICY

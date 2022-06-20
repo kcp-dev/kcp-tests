@@ -1,0 +1,31 @@
+apiVersion: template.openshift.io/v1
+kind: Template
+metadata:
+  name: pod-initcontainer
+objects:
+- kind: Pod
+  apiVersion: v1
+  metadata:
+    name: "${NAME}"
+    namespace: "${NAMESPACE}"
+  spec:
+    initContainers:
+    - name: inittest
+      image: "registry.redhat.io/rhel7/rhel"
+      command: ["bin/sh", "-ec", "echo running >> /mnt/data/test"]
+      volumeMounts:
+      - name: my-volume
+        mountPath: /mnt/data
+    containers:
+    - name: my-container
+      image: "registry.redhat.io/rhel7/rhel"
+      command: ["/bin/sh", "-ec", "ls /mnt/data; sleep 999999"]
+      volumeMounts:
+      - mountPath: /mnt/data
+        name: my-volume
+    volumes:
+    - name: my-volume
+      emptyDir: {}
+parameters:      
+- name: NAME
+- name: NAMESPACE

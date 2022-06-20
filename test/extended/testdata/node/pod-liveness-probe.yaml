@@ -1,0 +1,33 @@
+apiVersion: template.openshift.io/v1
+kind: Template
+metadata:
+  name: pod-livenessprobe-template
+objects:
+- kind: Pod
+  apiVersion: v1
+  metadata:
+    name: "${NAME}"
+    namespace: "${NAMESPACE}"
+    annotations: 
+      "unsupported.do-not-use.openshift.io/override-liveness-grace-period-seconds": ${OVERRIDELIVENESSGRACE}
+  spec:
+    terminationGracePeriodSeconds: ${{TERMINATIONGRACE}}
+    containers:
+    - image: "quay.io/openshifttest/hello-openshift@sha256:b1aabe8c8272f750ce757b6c4263a2712796297511e0c6df79144ee188933623"
+      name: test
+      command: [bash, -c, "sleep 100000000"] 
+      ports:
+        - containerPort: 8080
+      livenessProbe:
+        httpGet:
+          path: /healthz
+          port: 8080
+        failureThreshold: ${{FAILURETHRESHOLD}}
+        periodSeconds: ${{PERIODSECONDS}}
+parameters:
+- name: NAME
+- name: NAMESPACE
+- name: OVERRIDELIVENESSGRACE
+- name: TERMINATIONGRACE
+- name: FAILURETHRESHOLD
+- name: PERIODSECONDS

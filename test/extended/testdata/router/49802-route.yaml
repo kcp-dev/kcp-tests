@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: List
+items:
+- apiVersion: route.openshift.io/v1
+  kind: Route
+  metadata:
+    creationTimestamp: null
+    labels:
+      app: hello-pod
+    name: hello-pod
+  spec:
+    port:
+      targetPort: 8080
+    tls:
+      termination: edge
+      insecureEdgeTerminationPolicy: Redirect
+    to:
+      kind: ""
+      name: hello-pod
+      weight: null
+  status:
+    ingress: null
+- apiVersion: route.openshift.io/v1
+  kind: Route
+  metadata:
+    creationTimestamp: null
+    labels:
+      app: hello-pod
+    name: hello-pod-http
+  spec:
+    port:
+      targetPort: 8080
+    path: "/test"
+    to:
+      kind: Service
+      name: hello-pod
+      weight: null
+    status:
+      ingress: null

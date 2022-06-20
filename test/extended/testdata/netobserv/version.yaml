@@ -1,0 +1,8 @@
+---
+operator: 
+  branch: "main"
+  tagName: "0.1.1"
+goflowkube:
+  image: "quay.io/netobserv/goflow2-kube:v0.1.1"
+consolePlugin:
+  image: "quay.io/netobserv/network-observability-console-plugin:v0.1.1"

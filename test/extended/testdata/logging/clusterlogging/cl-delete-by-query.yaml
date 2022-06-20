@@ -1,0 +1,69 @@
+kind: Template
+apiVersion: template.openshift.io/v1
+metadata:
+  name: clusterlogging-template
+objects:
+- kind: "ClusterLogging"
+  apiVersion: "logging.openshift.io/v1"
+  metadata:
+    name: ${NAME}
+    namespace: ${NAMESPACE}
+  spec:
+    managementState: "Managed"
+    logStore:
+      type: "elasticsearch"
+      retentionPolicy:
+        application:
+          maxAge: ${APP_LOG_MAX_AGE}
+          namespaceSpec: ${{APP_NAMESPACE_SPEC}}
+          pruneNamespacesInterval: ${PRUNE_INTERVAL}
+        infra:
+          maxAge: ${INFRA_LOG_MAX_AGE}
+          pruneNamespacesInterval: ${PRUNE_INTERVAL}
+          namespaceSpec: ${{INFRA_NAMESPACE_SPEC}}
+        audit:
+          maxAge: ${AUDIT_LOG_MAX_AGE}
+      elasticsearch:
+        nodeCount: ${{ES_NODE_COUNT}}
+        redundancyPolicy: ${REDUNDANCY_POLICY}
+        resources:
+          requests:
+            memory: "1Gi"
+        storage:
+          storageClassName: ${STORAGE_CLASS}
+          size: ${PVC_SIZE}
+    visualization:
+      type: "kibana"
+      kibana:
+        replicas: 1
+    collection:
+      logs:
+        type: ${COLLECTOR}
+        fluentd: {}
+parameters:
+  - name: NAME
+    value: "instance"
+  - name: NAMESPACE
+    value: "openshift-logging"
+  - name: ES_NODE_COUNT
+    value: "1"
+  - name: STORAGE_CLASS
+    value: "gp2"
+  - name: PVC_SIZE
+    value: "20Gi"
+  - name: REDUNDANCY_POLICY
+    value: "ZeroRedundancy"
+  - name: APP_LOG_MAX_AGE
+    value: "3h"
+  - name: INFRA_LOG_MAX_AGE
+    value: "3h"
+  - name: AUDIT_LOG_MAX_AGE
+    value: "3h"
+  - name: PRUNE_INTERVAL
+    value: "5m"
+  - name: APP_NAMESPACE_SPEC
+    value: "[{\"minAge\": \"10m\", \"namespace\": \"project-1\"}, {\"minAge\": \"20m\", \"namespace\": \"project-2\"}]"
+  - name: INFRA_NAMESPACE_SPEC
+    value: "[{\"minAge\": \"3m\", \"namespace\": \"openshift-\"}]"
+  - name: COLLECTOR
+    value: fluentd

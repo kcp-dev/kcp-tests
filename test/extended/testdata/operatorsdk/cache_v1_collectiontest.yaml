@@ -1,0 +1,12 @@
+apiVersion: template.openshift.io/v1
+kind: Template
+metadata:
+  name: collectiontest-template
+objects:
+- apiVersion: cache.example.com/v1
+  kind: CollectionTest
+  metadata:
+    name: "${NAME}"
+  spec: {}
+parameters:
+- name: NAME

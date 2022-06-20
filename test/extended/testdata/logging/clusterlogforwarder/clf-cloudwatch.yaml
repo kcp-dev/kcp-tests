@@ -1,0 +1,36 @@
+kind: Template
+apiversion: template.openshift.io/v1
+metadata:
+  name: clusterlogforwarder-template
+objects:
+- apiVersion: "logging.openshift.io/v1"
+  kind: ClusterLogForwarder
+  metadata:
+    name: instance 
+  spec:
+    outputs:
+     - name: cw
+       type: cloudwatch
+       cloudwatch:
+         groupBy: ${GROUPTYPE}
+         groupPrefix: ${PREFIX}
+         region: ${REGION}
+       secret:
+          name: ${SECRETNAME}
+    pipelines:
+      - name: to-cloudwatch
+        inputRefs:
+          - infrastructure
+          - application
+          - audit
+        outputRefs:
+          - cw
+parameters:
+- name: SECRETNAME
+  value: "cw-secret"
+- name: PREFIX
+  value: "qeauto"
+- name: REGION
+  value: "us-east-2"
+- name: GROUPTYPE
+  value: "logType"

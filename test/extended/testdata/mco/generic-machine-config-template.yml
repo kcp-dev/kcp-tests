@@ -1,0 +1,28 @@
+apiVersion: template.openshift.io/v1
+kind: Template
+metadata:
+  name: generic-machine-config-template
+objects:
+  - kind: MachineConfig
+    apiVersion: machineconfiguration.openshift.io/v1
+    metadata:
+      labels:
+        machineconfiguration.openshift.io/role: "${POOL}"
+      name: "${NAME}"
+    spec:
+      config:
+        ignition:
+          version: ${IGNITION_VERSION}
+        storage:
+          files: ${{FILES}}
+        systemd:
+          units: ${{UNITS}}
+parameters:
+  - name: NAME
+  - name: POOL
+  - name: IGNITION_VERSION
+    value: 3.2.0
+  - name: FILES
+    value: "[]"
+  - name: UNITS
+    value: "[]"

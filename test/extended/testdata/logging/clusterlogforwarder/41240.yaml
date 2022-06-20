@@ -1,0 +1,45 @@
+kind: Template
+apiversion: template.openshift.io/v1
+metadata:
+  name: clusterlogforwarder-template
+objects:
+- apiVersion: logging.openshift.io/v1
+  kind: ClusterLogForwarder
+  metadata:
+    name: ${NAME}
+    namespace: ${NAMESPACE}
+  spec:
+    inputs:
+    - application:
+        namespaces: 
+        - ${PROJ_NS}
+      name: test-app-logs
+    outputs:
+    - name: rsyslog
+      type: syslog 
+      syslog: 
+        facility: local0
+        severity: informational
+      url: ${URL}
+    pipelines:
+    - inputRefs:
+        - application
+        - audit
+        - infrastructure
+      name: application-audit-infrastructure-logs
+      outputRefs:
+        - default
+    - inputRefs:
+        - test-app-logs
+      name: forward-to-syslog
+      outputRefs:
+        - rsyslog
+parameters:
+- name: NAME
+  value: "instance"
+- name: NAMESPACE
+  value: "openshift-logging"
+- name: URL
+  value: 'udp://rsyslogserver.openshift-logging.svc:514'
+- name: PROJ_NS
+  value: "test"

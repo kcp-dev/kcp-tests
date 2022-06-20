@@ -1,0 +1,19 @@
+apiVersion: template.openshift.io/v1
+kind: Template
+metadata:
+  name: single-pod-template
+objects:
+- kind: Pod
+  apiVersion: v1
+  metadata:
+    name: "${NAME}"
+    namespace: "${NAMESPACE}"
+  spec:
+    containers:
+    - name: "${NAME}"
+      image: "${IMAGE}" 
+
+parameters:
+- name: NAME
+- name: NAMESPACE
+- name: IMAGE

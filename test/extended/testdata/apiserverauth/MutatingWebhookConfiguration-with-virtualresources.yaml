@@ -1,0 +1,16 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: "test-mutating-cfg"
+webhooks:
+- name: "test.mutating.com"
+  rules:
+  - operations: ["*"]
+    apiGroups: ["authorization.k8s.io"]
+    apiVersions: ["v1"]
+    resources: ["subjectaccessreviews"]
+    scope: "Namespaced"
+  clientConfig:
+    url: "https://my-webhook.example.com:9443/my-webhook-path"
+  admissionReviewVersions: ["v1"]
+  sideEffects: None

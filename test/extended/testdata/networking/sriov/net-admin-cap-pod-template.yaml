@@ -1,0 +1,24 @@
+apiVersion: template.openshift.io/v1
+kind: Template
+metadata:
+  name: net-admin-cap-pod-template
+objects:
+- kind: Pod
+  apiVersion: v1
+  metadata:
+    name: ${PODNAME}
+    labels:
+      name: ${PODNAME}
+  spec:
+    containers:
+    - name: ${PODNAME}
+      image: quay.io/openshifttest/hello-sdn@sha256:2af5b5ec480f05fda7e9b278023ba04724a3dd53a296afcd8c13f220dec52197
+      securityContext:
+        capabilities:
+          add: ["NET_ADMIN"]
+        privileged: true
+    hostNetwork: true
+    nodeName: ${NODENAME}
+parameters:
+- name: PODNAME 
+- name: NODENAME

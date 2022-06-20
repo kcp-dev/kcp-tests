@@ -1,0 +1,22 @@
+apiVersion: template.openshift.io/v1
+kind: Template
+metadata:
+  name: pod_test-template
+objects:
+  - apiVersion: v1
+    kind: Pod
+    metadata:
+      name: web
+      labels:
+        app: web
+    spec:
+      containers:
+      - name: test-go
+        image: quay.io/hongkailiu/test-go:testctl-0.0.6-83ce61e2
+        command: ["/testctl"]
+        args: ["http", "start", "-v"]
+        env:
+        - name: GIN_MODE
+          value: release
+        ports:
+        - containerPort: 8080

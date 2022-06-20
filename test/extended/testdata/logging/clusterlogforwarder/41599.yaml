@@ -1,0 +1,40 @@
+kind: Template
+apiversion: template.openshift.io/v1
+metadata:
+  name: clusterlogforwarder-template
+objects:
+- apiVersion: "logging.openshift.io/v1"
+  kind: "ClusterLogForwarder"
+  metadata:
+    name: ${NAME}
+    namespace: ${NAMESPACE}
+  spec:
+    pipelines:
+    - inputRefs: [ myLogsQA1, myLogsDev1 ]
+      outputRefs: [ default  ]
+    inputs:
+    - name: myLogsQA1
+      application:
+        selector:
+          matchLabels:
+            run: centos-logtest-qa-1
+            test: centos-logtest-qa-1
+        namespaces:
+        - ${APP_NAMESPACE_QA}
+    - name: myLogsDev1
+      application:
+        selector:
+          matchLabels:
+            run: centos-logtest-dev-1
+            test: centos-logtest-dev-1
+        namespaces:
+        - ${APP_NAMESPACE_DEV}
+parameters:
+- name: NAME
+  value: "instance"
+- name: NAMESPACE
+  value: "openshift-logging"
+- name: APP_NAMESPACE_QA
+  value: "appnamespaceqa"
+- name: APP_NAMESPACE_DEV
+  value: "appnamespacedev"

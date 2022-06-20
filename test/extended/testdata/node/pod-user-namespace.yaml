@@ -1,0 +1,21 @@
+apiVersion: template.openshift.io/v1
+kind: Template
+metadata:
+  name: pod-user-namespace
+objects:
+- kind: Pod
+  apiVersion: v1
+  metadata:
+    name: "${NAME}"
+    namespace: "${NAMESPACE}"
+    annotations:
+      io.openshift.builder: "true"
+      io.kubernetes.cri-o.userns-mode: "auto"
+  spec:
+    containers:
+    - name: userns-test-1
+      image: quay.io/openshifttest/fedora:multiarch
+      command: ["sleep", "3601"]
+parameters:      
+- name: NAME
+- name: NAMESPACE

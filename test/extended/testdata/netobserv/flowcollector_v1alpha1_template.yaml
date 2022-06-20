@@ -1,0 +1,52 @@
+apiVersion: template.openshift.io/v1
+kind: Template
+metadata:
+  name: FlowCollector-template
+objects:
+  - apiVersion: flows.netobserv.io/v1alpha1
+    kind: FlowCollector
+    metadata:
+      name: cluster
+    spec:
+      namespace: "${NAMESPACE}"
+      ipfix:
+        cacheActiveTimeout: 60s
+        cacheMaxFlows: 400
+        sampling: 100
+      goflowkube:
+        kind: "${{KIND}}"
+        replicas: 1
+        port: 2055
+        image: "${GOFLOW_IMAGE}"
+        imagePullPolicy: IfNotPresent
+        logLevel: info
+        printOutput: true
+      loki:
+        url: 'http://loki.default.svc.cluster.local:3100/'
+        batchWait: 1s
+        batchSize: 102400
+        minBackoff: 1s
+        maxBackoff: 300s
+        maxRetries: 10
+        staticLabels:
+          app: netobserv-flowcollector
+      consolePlugin:
+        image: "${CONSOLEPLUGIN_IMAGE}"
+        imagePullPolicy: IfNotPresent
+        port: 9001
+      cno:
+        namespace: "openshift-network-operator"
+parameters:
+  - name: NAMESPACE
+    description: "namespace where you want goflowkube and consoleplugin pods to be deployed"
+    value: "network-observability"
+  - name: KIND
+    value: "Deployment"
+    required: true
+  - name: GOFLOW_IMAGE
+    value: 'quay.io/netobserv/goflow2-kube:main'
+    required: true
+  - name: CONSOLEPLUGIN_IMAGE
+    value: 'quay.io/netobserv/network-observability-console-plugin:main'
+    required: true
+    

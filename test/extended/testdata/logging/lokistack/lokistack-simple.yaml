@@ -1,0 +1,36 @@
+kind: Template
+apiVersion: template.openshift.io/v1
+metadata:
+  name: lokiStack-template
+objects:
+- kind: "LokiStack"
+  apiVersion: "loki.grafana.com/v1beta1"
+  metadata:
+    name: ${NAME}
+    namespace: ${NAMESPACE}
+  spec:
+    managementState: "Managed"
+    replicationFactor: "${{REPLICAS_FACTOR}}"
+    size: ${SIZE}
+    storage:
+      secret:
+        name: ${SECRET_NAME}
+        type: ${STORAGE_TYPE}
+    storageClassName: ${STORAGE_CLASS}
+    tenants:
+      mode: "openshift-logging"
+parameters:
+- name: NAME
+  value: "my-loki"
+- name: NAMESPACE
+  value: "openshift-logging"
+- name: REPLICAS_FACTOR
+  value: "1"
+- name: SIZE
+  value: "1x.extra-small"
+- name: SECRET_NAME
+  value: "s3-secret"
+- name: STORAGE_TYPE
+  value: "s3"
+- name: STORAGE_CLASS
+  value: "gp2"
