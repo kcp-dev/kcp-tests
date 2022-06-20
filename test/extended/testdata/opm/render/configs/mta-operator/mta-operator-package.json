@@ -1,8 +1,0 @@
-{
-    "schema": "olm.package",
-    "name": "mta-operator",
-    "defaultChannel": "alpha",
-    "icon": {
-        "mediatype": "image/png"
-    }
-}

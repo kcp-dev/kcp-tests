@@ -1,5 +1,0 @@
-apiVersion: storageos.com/v1
-kind: StorageOSCluster
-metadata:
-  name: storageoscluster-example
-  namespace: storageos

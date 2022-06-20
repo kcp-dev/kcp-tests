@@ -1,6 +1,0 @@
-spec:
-  recommend:
-  - machineConfigLabels:
-      machineconfiguration.openshift.io/role: "master"
-    priority: 20
-    profile: openshift-node-performance-hp-performanceprofile

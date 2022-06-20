@@ -1,5 +1,0 @@
-{
-    "schema": "olm.package",
-    "name": "example-operator",
-    "defaultChannel": "stable"
-}

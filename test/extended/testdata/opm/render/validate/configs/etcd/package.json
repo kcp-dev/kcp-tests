@@ -1,6 +1,0 @@
-{
-    "schema": "olm.package",
-    "name": "etcd",
-    "defaultChannel": "singlenamespace-alpha",
-    "description": "etcd test\n"
-}
