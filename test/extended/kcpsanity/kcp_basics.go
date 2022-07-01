@@ -25,7 +25,7 @@ var _ = g.Describe("[kcp] Kcpsanity", func() {
 	defer g.GinkgoRecover()
 
 	var (
-		kubectl = exutil.NewCLI("kcp-"+getRandomString(), exutil.KubeConfigPath())
+		kubectl = exutil.NewCLIWithoutNamespace("default")
 	)
 
 	g.It("Author:knarra-Medium-2800712-Checking oc version show clean as gitTreeState value", func() {
@@ -34,4 +34,17 @@ var _ = g.Describe("[kcp] Kcpsanity", func() {
 		e2e.Logf("output is:%v", out)
 
 	})
+
+        g.It("Author:knarra-Medium-2800713-Create workspace", func() {
+               out, err := kubectl.Run("config").Args("get-contexts").Output()
+               o.Expect(err).NotTo(o.HaveOccurred())
+               e2e.Logf("Context is:%v", out)
+               err = kubectl.Run("config").Args("use-context", "kcp-stable").Execute()
+               o.Expect(err).NotTo(o.HaveOccurred())
+               createWs, err := kubectl.WithoutNamespace().WithoutKubeconf().Run("kcp").Args("workspace", "create", "qetest2", "--enter").Output()
+               o.Expect(err).NotTo(o.HaveOccurred())
+               o.Expect(createWs).To(o.ContainSubstring("root:rh-sso-15878744:qetest2"))
+
+
+        })
 })

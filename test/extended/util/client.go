@@ -14,7 +14,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime/debug"
+	//"runtime/debug"
 	"strings"
 	"time"
 
@@ -128,7 +128,7 @@ func NewCLIWithoutNamespace(project string) *CLI {
 	client.kubeFramework = e2e.NewDefaultFramework(project)
 	client.kubeFramework.SkipNamespaceCreation = true
 	client.username = "admin"
-	client.execPath = "oc"
+	client.execPath = "kubectl"
 	client.adminConfigPath = KubeConfigPath()
 	client.showInfo = true
 	return client
@@ -742,8 +742,8 @@ func (c *CLI) Execute() error {
 // FatalErr exits the test in case a fatal error has occurred.
 func FatalErr(msg interface{}) {
 	// the path that leads to this being called isn't always clear...
-	fmt.Fprintln(g.GinkgoWriter, string(debug.Stack()))
-	e2e.Failf("%v", msg)
+	//fmt.Fprintln(g.GinkgoWriter, string(debug.Stack()))
+	//e2e.Failf("%v", msg)
 }
 
 // AddExplicitResourceToDelete method
