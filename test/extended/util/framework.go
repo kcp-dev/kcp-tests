@@ -44,6 +44,7 @@ import (
 	"k8s.io/kubernetes/test/e2e/framework/statefulset"
 	"k8s.io/kubernetes/test/utils/image"
 
+	"github.com/kcp-dev/kcp-tests/test/extended/testdata"
 	appsv1 "github.com/openshift/api/apps/v1"
 	buildv1 "github.com/openshift/api/build/v1"
 	configv1 "github.com/openshift/api/config/v1"
@@ -56,7 +57,6 @@ import (
 	"github.com/openshift/library-go/pkg/build/naming"
 	"github.com/openshift/library-go/pkg/git"
 	"github.com/openshift/library-go/pkg/image/imageutil"
-	"github.com/kcp-dev/kcp-tests/test/extended/testdata"
 
 	. "github.com/onsi/gomega"
 )

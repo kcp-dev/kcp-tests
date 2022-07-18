@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+
 	//"runtime/debug"
 	"strings"
 	"time"
@@ -67,25 +68,25 @@ import (
 // CLI provides function to call the OpenShift CLI and Kubernetes and OpenShift
 // clients.
 type CLI struct {
-	execPath           string
-	verb               string
-	configPath         string
-	guestConfigPath    string
-	adminConfigPath    string
-	username           string
-	globalArgs         []string
-	commandArgs        []string
-	finalArgs          []string
-	namespacesToDelete []string
-	stdin              *bytes.Buffer
-	stdout             io.Writer
-	stderr             io.Writer
-	verbose            bool
-	showInfo           bool
-	withoutNamespace   bool
-	withoutKubeconf    bool
-	asGuestKubeconf    bool
-	kubeFramework      *e2e.Framework
+	execPath        string
+	verb            string
+	configPath      string
+	guestConfigPath string
+	adminConfigPath string
+	username        string
+	globalArgs      []string
+	commandArgs     []string
+	finalArgs       []string
+	// namespacesToDelete []string
+	stdin            *bytes.Buffer
+	stdout           io.Writer
+	stderr           io.Writer
+	verbose          bool
+	showInfo         bool
+	withoutNamespace bool
+	withoutKubeconf  bool
+	asGuestKubeconf  bool
+	kubeFramework    *e2e.Framework
 
 	resourcesToDelete []resourceRef
 }
@@ -123,7 +124,8 @@ func NewCLIWithoutNamespace(project string) *CLI {
 	client := &CLI{}
 
 	// must be registered before the e2e framework aftereach
-	g.AfterEach(client.TeardownProject)
+	// To do: Could use workspace instead of project for kcp test ?
+	// g.AfterEach(client.TeardownProject)
 
 	client.kubeFramework = e2e.NewDefaultFramework(project)
 	client.kubeFramework.SkipNamespaceCreation = true
@@ -593,6 +595,11 @@ type ExitError struct {
 	*exec.ExitError
 }
 
+func IsDebug() bool {
+	logLevel := os.Getenv("E2E_TEST_LOG_LEVEL")
+	return logLevel == "DEBUG"
+}
+
 // Output executes the command and returns stdout/stderr combined into one string
 func (c *CLI) Output() (string, error) {
 	if c.verbose {
@@ -600,11 +607,12 @@ func (c *CLI) Output() (string, error) {
 	}
 	cmd := exec.Command(c.execPath, c.finalArgs...)
 	cmd.Stdin = c.stdin
-	if c.showInfo {
+	if c.showInfo || IsDebug() {
 		e2e.Logf("Running '%s %s'", c.execPath, strings.Join(c.finalArgs, " "))
 	}
 	out, err := cmd.CombinedOutput()
 	trimmed := strings.TrimSpace(string(out))
+	e2e.Debugf("****** Output is: ******\n\"%s\"\n****** ErrorInfo is: ******\n\"%v\"", trimmed, err)
 	switch err.(type) {
 	case nil:
 		c.stdout = bytes.NewBuffer(out)

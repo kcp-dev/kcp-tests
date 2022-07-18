@@ -22,11 +22,11 @@ import (
 	reale2e "k8s.io/kubernetes/test/e2e"
 	e2e "k8s.io/kubernetes/test/e2e/framework"
 
-	"github.com/openshift/library-go/pkg/serviceability"
 	"github.com/kcp-dev/kcp-tests/pkg/monitor"
 	testginkgo "github.com/kcp-dev/kcp-tests/pkg/test/ginkgo"
 	exutil "github.com/kcp-dev/kcp-tests/test/extended/util"
 	exutilcloud "github.com/kcp-dev/kcp-tests/test/extended/util/cloud"
+	"github.com/openshift/library-go/pkg/serviceability"
 
 	// these are loading important global flags that we need to get and set
 	_ "k8s.io/kubernetes/test/e2e"
