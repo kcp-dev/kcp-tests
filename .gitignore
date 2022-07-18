@@ -1,0 +1,12 @@
+/bin
+/bin/*
+kubeconfig
+kubeadmin-password
+/frontend/node_modules/
+/frontend/gui_test_screenshots/
+/frontend/cypress-a11y-report.json
+/frontend/upstream
+/frontend/yarn.lock
+/.vscode
+/.idea
+.DS_Store

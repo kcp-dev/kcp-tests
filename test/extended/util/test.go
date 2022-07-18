@@ -16,6 +16,7 @@ import (
 	"github.com/onsi/ginkgo/types"
 	"github.com/onsi/gomega"
 	"k8s.io/klog"
+	"k8s.io/kubectl/pkg/generated"
 
 	kapiv1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -28,19 +29,14 @@ import (
 	"k8s.io/client-go/util/retry"
 	e2e "k8s.io/kubernetes/test/e2e/framework"
 	"k8s.io/kubernetes/test/e2e/framework/testfiles"
-	"k8s.io/kubernetes/test/e2e/generated"
 
-	// this appears to inexplicably auto-register global flags.
-	_ "k8s.io/kubernetes/test/e2e/storage/drivers"
-
+	"github.com/kcp-dev/kcp-tests/pkg/version"
 	projectv1 "github.com/openshift/api/project/v1"
 	securityv1client "github.com/openshift/client-go/security/clientset/versioned"
-	"github.com/kcp-dev/kcp-tests/pkg/version"
 )
 
 var (
 	reportFileName string
-	syntheticSuite string
 	quiet          bool
 )
 
@@ -49,9 +45,6 @@ var TestContext *e2e.TestContextType = &e2e.TestContext
 func InitStandardFlags() {
 	e2e.RegisterCommonFlags(flag.CommandLine)
 	e2e.RegisterClusterFlags(flag.CommandLine)
-
-	// replaced by a bare import above.
-	//e2e.RegisterStorageFlags()
 }
 
 func InitTest(dryRun bool) error {
@@ -59,7 +52,7 @@ func InitTest(dryRun bool) error {
 	// interpret synthetic input in `--ginkgo.focus` and/or `--ginkgo.skip`
 	ginkgo.BeforeEach(checkSyntheticInput)
 
-	TestContext.DeleteNamespace = os.Getenv("DELETE_NAMESPACE") != "false"
+	// TestContext.DeleteNamespace = os.Getenv("DELETE_NAMESPACE") != "false"
 	TestContext.VerifyServiceAccount = true
 	testfiles.AddFileSource(testfiles.BindataFileSource{
 		Asset:      generated.Asset,
@@ -139,21 +132,12 @@ func AnnotateTestSuite() {
 		os.Exit(1)
 	}
 
-	testRenamer := newGinkgoTestRenamerFromGlobals(e2e.TestContext.Provider, getNetworkSkips())
+	testRenamer := newGinkgoTestRenamerFromGlobals()
 
 	ginkgo.WalkTests(testRenamer.maybeRenameTest)
 }
 
-func getNetworkSkips() []string {
-	out, err := e2e.KubectlCmd("get", "network.operator.openshift.io", "cluster", "--template", "{{.spec.defaultNetwork.type}}{{if .spec.defaultNetwork.openshiftSDNConfig}} {{.spec.defaultNetwork.type}}/{{.spec.defaultNetwork.openshiftSDNConfig.mode}}{{end}}").CombinedOutput()
-	if err != nil {
-		e2e.Logf("Could not get network operator configuration: not adding any plugin-specific skips.")
-		return nil
-	}
-	return strings.Split(string(out), " ")
-}
-
-func newGinkgoTestRenamerFromGlobals(provider string, networkSkips []string) *ginkgoTestRenamer {
+func newGinkgoTestRenamerFromGlobals() *ginkgoTestRenamer {
 	var allLabels []string
 	matches := make(map[string]*regexp.Regexp)
 	stringMatches := make(map[string][]string)
@@ -180,22 +164,14 @@ func newGinkgoTestRenamerFromGlobals(provider string, networkSkips []string) *gi
 		excludes[label] = regexp.MustCompile(strings.Join(items, `|`))
 	}
 	sort.Strings(allLabels)
-
-	if provider != "" {
-		excludedTests = append(excludedTests, fmt.Sprintf(`\[Skipped:%s\]`, provider))
-	}
-	for _, network := range networkSkips {
-		excludedTests = append(excludedTests, fmt.Sprintf(`\[Skipped:Network/%s\]`, network))
-	}
 	klog.V(4).Infof("openshift-tests-private excluded test regex is %q", strings.Join(excludedTests, `|`))
 	excludedTestsFilter := regexp.MustCompile(strings.Join(excludedTests, `|`))
 
 	return &ginkgoTestRenamer{
-		allLabels:     allLabels,
-		stringMatches: stringMatches,
-		matches:       matches,
-		excludes:      excludes,
-
+		allLabels:           allLabels,
+		stringMatches:       stringMatches,
+		matches:             matches,
+		excludes:            excludes,
 		excludedTestsFilter: excludedTestsFilter,
 	}
 }
@@ -248,23 +224,17 @@ func (r *ginkgoTestRenamer) maybeRenameTest(name string, node types.TestNode) {
 
 	if !r.excludedTestsFilter.MatchString(name) {
 		isSerial := strings.Contains(name, "[Serial]")
-		isConformance := strings.Contains(name, "[Conformance]")
+		isSmoke := strings.Contains(name, "[Smoke]")
 		switch {
-		case isSerial && isConformance:
-			node.SetText(node.Text() + " [Suite:openshift/conformance/serial/minimal]")
+		case isSerial && isSmoke:
+			node.SetText(node.Text() + " [Suite:kcp/smoke/serial/minimal]")
 		case isSerial:
-			node.SetText(node.Text() + " [Suite:openshift/conformance/serial]")
-		case isConformance:
-			node.SetText(node.Text() + " [Suite:openshift/conformance/parallel/minimal]")
+			node.SetText(node.Text() + " [Suite:kcp/smoke/serial]")
+		case isSmoke:
+			node.SetText(node.Text() + " [Suite:kcp/smoke/parallel/minimal]")
 		default:
-			node.SetText(node.Text() + " [Suite:openshift/conformance/parallel]")
+			node.SetText(node.Text() + " [Suite:kcp/smoke/parallel]")
 		}
-	}
-	if strings.Contains(node.CodeLocation().FileName, "/origin/test/") && !strings.Contains(node.Text(), "[Suite:openshift") {
-		node.SetText(node.Text() + " [Suite:openshift]")
-	}
-	if strings.Contains(node.CodeLocation().FileName, "/kubernetes/test/e2e/") {
-		node.SetText(node.Text() + " [Suite:k8s]")
 	}
 	node.SetText(node.Text() + labels)
 }
