@@ -8,9 +8,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	e2e "k8s.io/kubernetes/test/e2e/framework"
 
+	"github.com/kcp-dev/kcp-tests/test/extended/util/azure"
 	configv1 "github.com/openshift/api/config/v1"
 	configclient "github.com/openshift/client-go/config/clientset/versioned"
-	"github.com/kcp-dev/kcp-tests/test/extended/util/azure"
 )
 
 // LoadConfig uses the cluster to setup the cloud provider config.

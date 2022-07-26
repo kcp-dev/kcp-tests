@@ -1,9 +1,10 @@
 module github.com/kcp-dev/kcp-tests
 
-go 1.17
+go 1.18
 
 require (
 	github.com/fsouza/go-dockerclient v0.0.0-20171004212419-da3951ba2e9e
+	github.com/ghodss/yaml v1.0.0
 	github.com/onsi/ginkgo v1.10.1
 	github.com/onsi/gomega v1.7.0
 	github.com/openshift/api v3.9.1-0.20191201231411-9f834e337466+incompatible
