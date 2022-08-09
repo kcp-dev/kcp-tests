@@ -14,7 +14,7 @@ var _ = g.Describe("[sig-common-version]", func() {
 	defer g.GinkgoRecover()
 
 	var (
-		k = exutil.NewCLIWithoutNamespace("kcp-version")
+		k = exutil.NewCLIWithWorkSpace("kcp-version")
 	)
 
 	g.It("Author:knarra-Medium-[Smoke] Checking kcp server version should display correctly", func() {

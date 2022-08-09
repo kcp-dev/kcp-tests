@@ -74,7 +74,7 @@ type CLI struct {
 	execPath               string
 	verb                   string
 	configPath             string
-	currentWs              workSpace
+	currentWs              WorkSpace
 	guestConfigPath        string
 	adminConfigPath        string
 	orgServerURL           string
@@ -82,7 +82,7 @@ type CLI struct {
 	globalArgs             []string
 	commandArgs            []string
 	finalArgs              []string
-	workSpacesToDelete     []workSpace
+	workSpacesToDelete     []WorkSpace
 	stdin                  *bytes.Buffer
 	stdout                 io.Writer
 	stderr                 io.Writer
@@ -103,10 +103,11 @@ type resourceRef struct {
 	Name      string
 }
 
-type workSpace struct {
-	Name            string
-	ServerURL       string
-	ParentServerURL string
+// WorkSpace defination
+type WorkSpace struct {
+	Name            string // WorkSpace Name            E.g. e2e-test-kcp-workspace-xxxxx
+	ServerURL       string // WorkSpace ServerURL       E.g. https://{{kcp-service-domain}}/clusters/root:orgID:e2e-test-kcp-workspace-xxxxx
+	ParentServerURL string // WorkSpace ParentServerURL E.g. https://{{kcp-service-domain}}/clusters/root:orgID
 }
 
 // NewCLI initialize the upstream E2E framework and set the namespace to match
@@ -130,9 +131,11 @@ func NewCLI(project, adminConfigPath string) *CLI {
 	return client
 }
 
-// NewCLIWithoutNamespace initialize the upstream E2E framework without adding a
-// namespace. You may call SetupProject() to create one.
-func NewCLIWithoutNamespace(wsPrefix string) *CLI {
+// NewCLIWithWorkSpace initialize the upstream E2E framework with adding a
+// workspace. You may also call SetupWorkSpace() to create a new one.
+// The workspace named "e2e-test-"" + wsPrefix + 5Bytes random string
+// E.g. e2e-test-kcp-workspace-bfzjr
+func NewCLIWithWorkSpace(wsPrefix string) *CLI {
 	client := &CLI{}
 
 	// must be registered before the e2e framework aftereach
@@ -169,7 +172,7 @@ func NewCLIWithoutNamespace(wsPrefix string) *CLI {
 	}
 	client.orgServerURL = gjson.Get(string(output), `clusters.#(name="`+testContext+`").cluster.server`).String()
 	e2e.Debugf("Workspace orgServerURL is: \"%s\"", client.orgServerURL)
-	client.currentWs = workSpace{Name: "orgWorkSpace", ServerURL: client.orgServerURL, ParentServerURL: ""}
+	client.currentWs = WorkSpace{Name: "orgWorkSpace", ServerURL: client.orgServerURL, ParentServerURL: ""}
 	// Create a workspace for kcp test before each case execute
 	g.BeforeEach(client.SetupWorkSpace)
 
@@ -601,8 +604,8 @@ func (c *CLI) Namespace() string {
 	return c.kubeFramework.Namespace.Name
 }
 
-// Workspace returns the workspace used in the current test case.
-func (c *CLI) WorkSpace() workSpace {
+// WorkSpace returns the workspace used in the current test case.
+func (c *CLI) WorkSpace() WorkSpace {
 	return c.currentWs
 }
 
@@ -649,6 +652,9 @@ func (c *CLI) Run(commands ...string) *CLI {
 	if !c.withoutNamespace {
 		nc.globalArgs = append([]string{fmt.Sprintf("--namespace=%s", c.Namespace())}, nc.globalArgs...)
 	}
+	// TODO: Temp solution  for parallelly ececute our test cases
+	// When https://github.com/kcp-dev/kcp/issues/1689 finished
+	// We could make it simply and just use the --kubeconfig instead of --server.
 	if !c.withoutWorkSpaceServer {
 		nc.globalArgs = append(nc.globalArgs, "--server="+c.currentWs.ServerURL)
 	}

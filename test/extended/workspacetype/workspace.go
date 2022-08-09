@@ -13,7 +13,7 @@ var _ = g.Describe("[sig-workspace]", func() {
 	defer g.GinkgoRecover()
 
 	var (
-		k = exutil.NewCLIWithoutNamespace("kcp-workspace")
+		k = exutil.NewCLIWithWorkSpace("kcp-workspace")
 	)
 
 	g.It("Author:pewang-Medium-[Smoke] Multi levels workspaces lifecycle should works well", func() {
