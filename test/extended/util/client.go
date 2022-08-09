@@ -77,7 +77,8 @@ type CLI struct {
 	currentWs              WorkSpace
 	guestConfigPath        string
 	adminConfigPath        string
-	orgServerURL           string
+	orgServerURL           string // User orgnaization workspace server url
+	homeServerURL          string // User homes workspace server url
 	username               string
 	globalArgs             []string
 	commandArgs            []string
@@ -162,6 +163,10 @@ func NewCLIWithWorkSpace(wsPrefix string) *CLI {
 	if err != nil {
 		e2e.Logf("Switch kubeconfig context failed of: \"%v\"", err)
 	}
+	err = client.WithoutNamespace().WithoutKubeconf().WithoutWorkSpaceServer().Run("ws").Args().Execute()
+	if err != nil {
+		e2e.Logf("Switch to user home worksapce failed of: \"%v\"", err)
+	}
 	output, err = ioutil.ReadFile(KubeConfigPath())
 	if err != nil {
 		e2e.Logf("Read kubeconfig file failed of: \"%v\"", err)
@@ -171,8 +176,10 @@ func NewCLIWithWorkSpace(wsPrefix string) *CLI {
 		e2e.Logf("Parse kubeconfig file to JSON failed of: \"%v\"", err)
 	}
 	client.orgServerURL = gjson.Get(string(output), `clusters.#(name="`+testContext+`").cluster.server`).String()
-	e2e.Debugf("Workspace orgServerURL is: \"%s\"", client.orgServerURL)
-	client.currentWs = WorkSpace{Name: "orgWorkSpace", ServerURL: client.orgServerURL, ParentServerURL: ""}
+	e2e.Debugf("User orgnaization workspace server is: \"%s\"", client.orgServerURL)
+	client.homeServerURL = gjson.Get(string(output), `clusters.#(name="workspace.kcp.dev/current").cluster.server`).String()
+	e2e.Debugf("User home workspace server is: \"%s\"", client.homeServerURL)
+	client.currentWs = WorkSpace{Name: "homeWorkSpace", ServerURL: client.homeServerURL, ParentServerURL: ""}
 	// Create a workspace for kcp test before each case execute
 	g.BeforeEach(client.SetupWorkSpace)
 
@@ -398,7 +405,7 @@ func (c *CLI) TeardownProject() {
 
 // SetupWorkSpace creates a new WorkSpace under the org workspace
 func (c *CLI) SetupWorkSpace() {
-	c.SetupWorkSpaceWithSpecificPath(c.orgServerURL)
+	c.SetupWorkSpaceWithSpecificPath(c.homeServerURL)
 }
 
 // SetupWorkSpaceWithSpecificPath creates a new WorkSpace with specific paths
@@ -609,9 +616,14 @@ func (c *CLI) WorkSpace() WorkSpace {
 	return c.currentWs
 }
 
-// OrgServerURL returns the orgServerURL of current kubeconfig context.
+// OrgServerURL returns the user orgnaization workspace server url.
 func (c *CLI) OrgServerURL() string {
 	return c.orgServerURL
+}
+
+// HomeServerURL returns the user home workspace server url.
+func (c *CLI) HomeServerURL() string {
+	return c.homeServerURL
 }
 
 // setOutput allows to override the default command output

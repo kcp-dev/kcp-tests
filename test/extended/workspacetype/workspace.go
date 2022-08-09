@@ -1,7 +1,7 @@
 package workspacetype
 
 import (
-	"strings"
+	"time"
 
 	g "github.com/onsi/ginkgo"
 	o "github.com/onsi/gomega"
@@ -17,7 +17,7 @@ var _ = g.Describe("[sig-workspace]", func() {
 	)
 
 	g.It("Author:pewang-Medium-[Smoke] Multi levels workspaces lifecycle should works well", func() {
-		g.By("# Create a test workspace should become ready to use")
+		g.By("# Create a test workspace under user home workspace should become ready to use")
 		k.SetupWorkSpace()
 		myWorkSpace := k.WorkSpace()
 
@@ -25,12 +25,12 @@ var _ = g.Describe("[sig-workspace]", func() {
 		k.SetupWorkSpaceWithSpecificPath(myWorkSpace.ServerURL)
 		mySubWorkSpace := k.WorkSpace()
 
-		g.By("# From the org workspace could get the test workspace but couldn't get its child level workspace")
+		g.By("# From the home workspace could get the test workspace but couldn't get its child level workspace")
 		output, err := k.WithoutNamespace().WithoutKubeconf().WithoutWorkSpaceServer().Run("get").Args("--server="+myWorkSpace.ParentServerURL, "workspace").Output()
 		o.Expect(err).NotTo(o.HaveOccurred())
 		o.Expect(output).Should(o.And(
 			o.ContainSubstring(myWorkSpace.Name),
-			o.ContainSubstring(strings.TrimPrefix(myWorkSpace.ServerURL, k.OrgServerURL())),
+			o.ContainSubstring(myWorkSpace.ServerURL),
 		))
 		o.Expect(output).ShouldNot(o.ContainSubstring(mySubWorkSpace.Name))
 
@@ -39,7 +39,26 @@ var _ = g.Describe("[sig-workspace]", func() {
 		o.Expect(err).NotTo(o.HaveOccurred())
 		o.Expect(output).Should(o.And(
 			o.ContainSubstring(mySubWorkSpace.Name),
-			o.ContainSubstring(strings.TrimPrefix(mySubWorkSpace.ServerURL, k.OrgServerURL())),
+			o.ContainSubstring(mySubWorkSpace.ServerURL),
 		))
+
+		g.By("# Delete the child workspace and the test workspace should be successful")
+		// Delete the child workspace and check it deleted successfully
+		output, err = k.WithoutNamespace().WithoutKubeconf().WithoutWorkSpaceServer().Run("delete").Args("--server="+myWorkSpace.ServerURL, "workspace", mySubWorkSpace.Name).Output()
+		o.Expect(err).NotTo(o.HaveOccurred())
+		o.Expect(output).Should(o.ContainSubstring("deleted"))
+		o.Eventually(func() string {
+			workSpaces, _ := k.WithoutNamespace().WithoutKubeconf().WithoutWorkSpaceServer().Run("get").Args("--server="+myWorkSpace.ServerURL, "workspace").Output()
+			return workSpaces
+		}, 60*time.Second, 5*time.Second).ShouldNot(o.ContainSubstring(mySubWorkSpace.Name))
+
+		// Delete the test workspace under home workspace and check it deleted successfully
+		output, err = k.WithoutNamespace().WithoutKubeconf().WithoutWorkSpaceServer().Run("delete").Args("--server="+myWorkSpace.ParentServerURL, "workspace", myWorkSpace.Name).Output()
+		o.Expect(err).NotTo(o.HaveOccurred())
+		o.Expect(output).Should(o.ContainSubstring("deleted"))
+		o.Eventually(func() string {
+			workSpaces, _ := k.WithoutNamespace().WithoutKubeconf().WithoutWorkSpaceServer().Run("get").Args("--server="+myWorkSpace.ParentServerURL, "workspace").Output()
+			return workSpaces
+		}, 60*time.Second, 5*time.Second).ShouldNot(o.ContainSubstring(myWorkSpace.Name))
 	})
 })
