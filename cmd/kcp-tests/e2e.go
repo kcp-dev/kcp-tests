@@ -1,6 +1,8 @@
 package main
 
 import (
+	"strings"
+
 	"k8s.io/kubectl/pkg/util/templates"
 
 	"github.com/kcp-dev/kcp-tests/pkg/test/ginkgo"
@@ -15,5 +17,14 @@ var staticSuites = []*ginkgo.TestSuite{
 		Run all tests.
 		`),
 		Matches: func(name string) bool { return true },
+	},
+	{
+		Name: "smoke",
+		Description: templates.LongDesc(`
+		Run smoke tests.
+		`),
+		Matches: func(name string) bool {
+			return strings.Contains(name, "[Suite:kcp/smoke")
+		},
 	},
 }

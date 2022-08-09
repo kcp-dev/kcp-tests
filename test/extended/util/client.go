@@ -14,6 +14,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
+
 	//"runtime/debug"
 	"strings"
 	"time"
@@ -21,9 +23,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 
+	"github.com/ghodss/yaml"
 	g "github.com/onsi/ginkgo"
 	o "github.com/onsi/gomega"
 	"github.com/pborman/uuid"
+	"github.com/tidwall/gjson"
 
 	kubeauthorizationv1 "k8s.io/api/authorization/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -67,25 +71,29 @@ import (
 // CLI provides function to call the OpenShift CLI and Kubernetes and OpenShift
 // clients.
 type CLI struct {
-	execPath           string
-	verb               string
-	configPath         string
-	guestConfigPath    string
-	adminConfigPath    string
-	username           string
-	globalArgs         []string
-	commandArgs        []string
-	finalArgs          []string
-	namespacesToDelete []string
-	stdin              *bytes.Buffer
-	stdout             io.Writer
-	stderr             io.Writer
-	verbose            bool
-	showInfo           bool
-	withoutNamespace   bool
-	withoutKubeconf    bool
-	asGuestKubeconf    bool
-	kubeFramework      *e2e.Framework
+	execPath               string
+	verb                   string
+	configPath             string
+	currentWs              WorkSpace
+	guestConfigPath        string
+	adminConfigPath        string
+	orgServerURL           string // User orgnaization workspace server url
+	homeServerURL          string // User homes workspace server url
+	username               string
+	globalArgs             []string
+	commandArgs            []string
+	finalArgs              []string
+	workSpacesToDelete     []WorkSpace
+	stdin                  *bytes.Buffer
+	stdout                 io.Writer
+	stderr                 io.Writer
+	verbose                bool
+	showInfo               bool
+	withoutNamespace       bool
+	withoutKubeconf        bool
+	withoutWorkSpaceServer bool
+	asGuestKubeconf        bool
+	kubeFramework          *e2e.Framework
 
 	resourcesToDelete []resourceRef
 }
@@ -94,6 +102,13 @@ type resourceRef struct {
 	Resource  schema.GroupVersionResource
 	Namespace string
 	Name      string
+}
+
+// WorkSpace defination
+type WorkSpace struct {
+	Name            string // WorkSpace Name            E.g. e2e-test-kcp-workspace-xxxxx
+	ServerURL       string // WorkSpace ServerURL       E.g. https://{{kcp-service-domain}}/clusters/root:orgID:e2e-test-kcp-workspace-xxxxx
+	ParentServerURL string // WorkSpace ParentServerURL E.g. https://{{kcp-service-domain}}/clusters/root:orgID
 }
 
 // NewCLI initialize the upstream E2E framework and set the namespace to match
@@ -117,20 +132,57 @@ func NewCLI(project, adminConfigPath string) *CLI {
 	return client
 }
 
-// NewCLIWithoutNamespace initialize the upstream E2E framework without adding a
-// namespace. You may call SetupProject() to create one.
-func NewCLIWithoutNamespace(project string) *CLI {
+// NewCLIWithWorkSpace initialize the upstream E2E framework with adding a
+// workspace. You may also call SetupWorkSpace() to create a new one.
+// The workspace named "e2e-test-"" + wsPrefix + 5Bytes random string
+// E.g. e2e-test-kcp-workspace-bfzjr
+func NewCLIWithWorkSpace(wsPrefix string) *CLI {
 	client := &CLI{}
 
 	// must be registered before the e2e framework aftereach
-	g.AfterEach(client.TeardownProject)
+	g.AfterEach(client.TeardownWorkSpace)
 
-	client.kubeFramework = e2e.NewDefaultFramework(project)
+	client.kubeFramework = e2e.NewDefaultFramework(wsPrefix)
 	client.kubeFramework.SkipNamespaceCreation = true
 	client.username = "admin"
 	client.execPath = "kubectl"
 	client.adminConfigPath = KubeConfigPath()
 	client.showInfo = true
+
+	var (
+		testContext string
+		output      []byte
+		err         error
+	)
+	// If not set "E2E_TEST_CONTEXT" use "kcp-stable" testContext by default
+	if testContext == "" {
+		testContext = "kcp-stable"
+		e2e.Debugf("Env var:\"E2E_TEST_CONTEXT\" not exist use kcp-stable context")
+	}
+	err = client.WithoutNamespace().WithoutKubeconf().WithoutWorkSpaceServer().Run("config").Args("use-context", testContext).Execute()
+	if err != nil {
+		e2e.Logf("Switch kubeconfig context failed of: \"%v\"", err)
+	}
+	err = client.WithoutNamespace().WithoutKubeconf().WithoutWorkSpaceServer().Run("ws").Args().Execute()
+	if err != nil {
+		e2e.Logf("Switch to user home worksapce failed of: \"%v\"", err)
+	}
+	output, err = ioutil.ReadFile(KubeConfigPath())
+	if err != nil {
+		e2e.Logf("Read kubeconfig file failed of: \"%v\"", err)
+	}
+	output, err = yaml.YAMLToJSON([]byte(output))
+	if err != nil {
+		e2e.Logf("Parse kubeconfig file to JSON failed of: \"%v\"", err)
+	}
+	client.orgServerURL = gjson.Get(string(output), `clusters.#(name="`+testContext+`").cluster.server`).String()
+	e2e.Debugf("User orgnaization workspace server is: \"%s\"", client.orgServerURL)
+	client.homeServerURL = gjson.Get(string(output), `clusters.#(name="workspace.kcp.dev/current").cluster.server`).String()
+	e2e.Debugf("User home workspace server is: \"%s\"", client.homeServerURL)
+	client.currentWs = WorkSpace{Name: "homeWorkSpace", ServerURL: client.homeServerURL, ParentServerURL: ""}
+	// Create a workspace for kcp test before each case execute
+	g.BeforeEach(client.SetupWorkSpace)
+
 	return client
 }
 
@@ -205,6 +257,12 @@ func (c CLI) WithoutNamespace() *CLI {
 	return &c
 }
 
+// WithoutWorkSpaceServer instructs the command should be invoked without adding --server parameter
+func (c CLI) WithoutWorkSpaceServer() *CLI {
+	c.withoutWorkSpaceServer = true
+	return &c
+}
+
 // WithoutKubeconf instructs the command should be invoked without adding --kubeconfig parameter
 func (c CLI) WithoutKubeconf() *CLI {
 	c.withoutKubeconf = true
@@ -215,7 +273,7 @@ func (c CLI) WithoutKubeconf() *CLI {
 func (c CLI) AsGuestKubeconf() *CLI {
 	c.asGuestKubeconf = true
 	c.withoutNamespace = true // if you want to use guest cluster config to opeate guest cluster, you have to set
-	//withoutNamespace as true (like calling WithoutNamespace), so you can not get ns of
+	// withoutNamespace as true (like calling WithoutNamespace), so you can not get ns of
 	// management cluster, and you have to set ns of guest cluster in Args.
 	return &c
 }
@@ -342,6 +400,44 @@ func (c *CLI) TeardownProject() {
 	for _, resource := range c.resourcesToDelete {
 		err := dynamicClient.Resource(resource.Resource).Namespace(resource.Namespace).Delete(resource.Name, nil)
 		e2e.Logf("Deleted %v, err: %v", resource, err)
+	}
+}
+
+// SetupWorkSpace creates a new WorkSpace under the org workspace
+func (c *CLI) SetupWorkSpace() {
+	c.SetupWorkSpaceWithSpecificPath(c.homeServerURL)
+}
+
+// SetupWorkSpaceWithSpecificPath creates a new WorkSpace with specific paths
+func (c *CLI) SetupWorkSpaceWithSpecificPath(serverURL string) {
+	newWorkSpace := names.SimpleNameGenerator.GenerateName(fmt.Sprintf("e2e-test-%s-", c.kubeFramework.BaseName))
+	e2e.Logf("Creating workspace %q", newWorkSpace)
+	output, errinfo := c.WithoutNamespace().WithoutKubeconf().WithoutWorkSpaceServer().Run("ws").Args("create", "--server="+serverURL, newWorkSpace).Output()
+	o.Expect(errinfo).NotTo(o.HaveOccurred())
+	o.Expect(output).Should(o.ContainSubstring("is ready to use"))
+	c.currentWs.Name = newWorkSpace
+	c.currentWs.ParentServerURL = serverURL
+	c.currentWs.ServerURL = serverURL + ":" + newWorkSpace
+	// Add the workspace to teardown deleted list
+	c.workSpacesToDelete = append(c.workSpacesToDelete, c.currentWs)
+	e2e.Logf("Workspace %q has been fully provisioned.", c.currentWs.Name)
+}
+
+// TeardownWorkSpace removes workspaces created by this test.
+func (c *CLI) TeardownWorkSpace() {
+	if len(c.configPath) > 0 {
+		os.Remove(c.configPath)
+	}
+	if !(os.Getenv("DELETE_WORKSPACE") == "false") {
+		// Sort the need to delete workSpaces delete the deepest level firstly
+		sort.Slice(c.workSpacesToDelete, func(i, j int) bool {
+			return len(c.workSpacesToDelete[i].ParentServerURL) > len(c.workSpacesToDelete[j].ParentServerURL)
+		})
+		e2e.Debugf("***%v***", c.workSpacesToDelete)
+		for _, ws := range c.workSpacesToDelete {
+			err := c.WithoutNamespace().WithoutKubeconf().WithoutWorkSpaceServer().Run("delete").Args("--server="+ws.ParentServerURL, "workspace", ws.Name).Execute()
+			e2e.Logf("Deleted %v, err: %v", ws.Name, err)
+		}
 	}
 }
 
@@ -515,6 +611,21 @@ func (c *CLI) Namespace() string {
 	return c.kubeFramework.Namespace.Name
 }
 
+// WorkSpace returns the workspace used in the current test case.
+func (c *CLI) WorkSpace() WorkSpace {
+	return c.currentWs
+}
+
+// OrgServerURL returns the user orgnaization workspace server url.
+func (c *CLI) OrgServerURL() string {
+	return c.orgServerURL
+}
+
+// HomeServerURL returns the user home workspace server url.
+func (c *CLI) HomeServerURL() string {
+	return c.homeServerURL
+}
+
 // setOutput allows to override the default command output
 func (c *CLI) setOutput(out io.Writer) *CLI {
 	c.stdout = out
@@ -552,6 +663,12 @@ func (c *CLI) Run(commands ...string) *CLI {
 	}
 	if !c.withoutNamespace {
 		nc.globalArgs = append([]string{fmt.Sprintf("--namespace=%s", c.Namespace())}, nc.globalArgs...)
+	}
+	// TODO: Temp solution  for parallelly ececute our test cases
+	// When https://github.com/kcp-dev/kcp/issues/1689 finished
+	// We could make it simply and just use the --kubeconfig instead of --server.
+	if !c.withoutWorkSpaceServer {
+		nc.globalArgs = append(nc.globalArgs, "--server="+c.currentWs.ServerURL)
 	}
 	nc.stdin, nc.stdout, nc.stderr = in, out, errout
 	return nc.setOutput(c.stdout)
@@ -593,6 +710,12 @@ type ExitError struct {
 	*exec.ExitError
 }
 
+// IsDebug use for check whether the E2E_TEST "DEBUG" log enabled
+func IsDebug() bool {
+	logLevel := os.Getenv("E2E_TEST_LOG_LEVEL")
+	return logLevel == "DEBUG"
+}
+
 // Output executes the command and returns stdout/stderr combined into one string
 func (c *CLI) Output() (string, error) {
 	if c.verbose {
@@ -600,11 +723,12 @@ func (c *CLI) Output() (string, error) {
 	}
 	cmd := exec.Command(c.execPath, c.finalArgs...)
 	cmd.Stdin = c.stdin
-	if c.showInfo {
+	if c.showInfo || IsDebug() {
 		e2e.Logf("Running '%s %s'", c.execPath, strings.Join(c.finalArgs, " "))
 	}
 	out, err := cmd.CombinedOutput()
 	trimmed := strings.TrimSpace(string(out))
+	e2e.Debugf("****** Output is: ******\n\"%s\"\n****** ErrorInfo is: ******\n\"%v\"", trimmed, err)
 	switch err.(type) {
 	case nil:
 		c.stdout = bytes.NewBuffer(out)
