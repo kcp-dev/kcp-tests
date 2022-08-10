@@ -449,6 +449,16 @@ func (c *CLI) SetupWorkSpaceWithSpecificPath(serverURL string) {
 	e2e.Logf("Workspace %q has been fully provisioned.", c.currentWs.Name)
 }
 
+// ListWorkSpacesWithSpecificPath returns a list of WorkSpaces under a specific workspace
+func (c *CLI) ListWorkSpacesWithSpecificPath(serverURL string) []string {
+	workSpacesRaw, err := c.WithoutNamespace().WithoutKubeconf().Run("get").Args("workspaces", "-o", "jsonpath={.items[*]['metadata.name']}", "--server="+serverURL).Output()
+	o.Expect(err).NotTo(o.HaveOccurred())
+	if workSpacesRaw == "" {
+		return []string{}
+	}
+	return strings.Split(workSpacesRaw, " ")
+}
+
 // TeardownWorkSpace removes workspaces created by this test.
 func (c *CLI) TeardownWorkSpace() {
 	if len(c.configPath) > 0 {
