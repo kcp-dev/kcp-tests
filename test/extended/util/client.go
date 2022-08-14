@@ -15,6 +15,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
+	"sync"
 
 	//"runtime/debug"
 	"strings"
@@ -22,8 +23,8 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
+	"sigs.k8s.io/yaml"
 
-	"github.com/ghodss/yaml"
 	g "github.com/onsi/ginkgo"
 	o "github.com/onsi/gomega"
 	"github.com/pborman/uuid"
@@ -111,6 +112,51 @@ type WorkSpace struct {
 	ParentServerURL string // WorkSpace ParentServerURL E.g. https://{{kcp-service-domain}}/clusters/root:orgID
 }
 
+var (
+	loadConfigOnce sync.Once
+	testContext    string
+	orgServer      string
+	homeServer     string
+)
+
+// loadConfig get the User orgnaization workspace and home workspace server
+func loadConfig() {
+	var err error
+	// If not set "E2E_TEST_CONTEXT" use "kcp-stable" testContext by default
+	testContext = os.Getenv("E2E_TEST_CONTEXT")
+	if testContext == "" {
+		testContext = "kcp-stable"
+		e2e.Debugf("Env var:\"E2E_TEST_CONTEXT\" not exist use kcp-stable context")
+	}
+	configJSON := ReadKubeConfig(KubeConfigPath())
+	orgServer = gjson.Get(configJSON, `clusters.#(name="`+testContext+`").cluster.server`).String()
+	e2e.Debugf("User orgnaization workspace server is: \"%s\"", orgServer)
+	client := &CLI{
+		username:        "admin",
+		execPath:        "kubectl",
+		adminConfigPath: KubeConfigPath(),
+	}
+	rootServer := strings.Join(strings.Split(orgServer, ":")[:2], ":")
+	homeServer, err = client.WithoutNamespace().WithoutKubeconf().WithoutWorkSpaceServer().NotShowInfo().Run("get").Args("workspace/~", "--server="+rootServer, "-o=jsonpath={.status.URL}").Output()
+	if err != nil {
+		e2e.Logf("Get home workspace server failed of: \"%v\"", err)
+	}
+	e2e.Debugf("User home workspace server is: \"%s\"", homeServer)
+}
+
+// ReadKubeConfig return a specific kubeconfig to JSON
+func ReadKubeConfig(kubeconfigPath string) string {
+	output, err := ioutil.ReadFile(kubeconfigPath)
+	if err != nil {
+		e2e.Logf("Read kubeconfig file failed of: \"%v\"", err)
+	}
+	output, err = yaml.YAMLToJSON(output)
+	if err != nil {
+		e2e.Logf("Parse kubeconfig file to JSON failed of: \"%v\"", err)
+	}
+	return string(output)
+}
+
 // NewCLI initialize the upstream E2E framework and set the namespace to match
 // with the project name. Note that this function does not initialize the project
 // role bindings for the namespace.
@@ -141,44 +187,16 @@ func NewCLIWithWorkSpace(wsPrefix string) *CLI {
 
 	// must be registered before the e2e framework aftereach
 	g.AfterEach(client.TeardownWorkSpace)
-
 	client.kubeFramework = e2e.NewDefaultFramework(wsPrefix)
 	client.kubeFramework.SkipNamespaceCreation = true
 	client.username = "admin"
 	client.execPath = "kubectl"
 	client.adminConfigPath = KubeConfigPath()
 	client.showInfo = true
-
-	var (
-		testContext string
-		output      []byte
-		err         error
-	)
-	// If not set "E2E_TEST_CONTEXT" use "kcp-stable" testContext by default
-	if testContext == "" {
-		testContext = "kcp-stable"
-		e2e.Debugf("Env var:\"E2E_TEST_CONTEXT\" not exist use kcp-stable context")
-	}
-	err = client.WithoutNamespace().WithoutKubeconf().WithoutWorkSpaceServer().Run("config").Args("use-context", testContext).Execute()
-	if err != nil {
-		e2e.Logf("Switch kubeconfig context failed of: \"%v\"", err)
-	}
-	err = client.WithoutNamespace().WithoutKubeconf().WithoutWorkSpaceServer().Run("ws").Args().Execute()
-	if err != nil {
-		e2e.Logf("Switch to user home worksapce failed of: \"%v\"", err)
-	}
-	output, err = ioutil.ReadFile(KubeConfigPath())
-	if err != nil {
-		e2e.Logf("Read kubeconfig file failed of: \"%v\"", err)
-	}
-	output, err = yaml.YAMLToJSON([]byte(output))
-	if err != nil {
-		e2e.Logf("Parse kubeconfig file to JSON failed of: \"%v\"", err)
-	}
-	client.orgServerURL = gjson.Get(string(output), `clusters.#(name="`+testContext+`").cluster.server`).String()
-	e2e.Debugf("User orgnaization workspace server is: \"%s\"", client.orgServerURL)
-	client.homeServerURL = gjson.Get(string(output), `clusters.#(name="workspace.kcp.dev/current").cluster.server`).String()
-	e2e.Debugf("User home workspace server is: \"%s\"", client.homeServerURL)
+	// Load config once every case
+	loadConfigOnce.Do(loadConfig)
+	client.homeServerURL = homeServer
+	client.orgServerURL = orgServer
 	client.currentWs = WorkSpace{Name: "homeWorkSpace", ServerURL: client.homeServerURL, ParentServerURL: ""}
 	// Create a workspace for kcp test before each case execute
 	g.BeforeEach(client.SetupWorkSpace)
