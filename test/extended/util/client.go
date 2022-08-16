@@ -126,33 +126,39 @@ func loadConfig() {
 	testContext = os.Getenv("E2E_TEST_CONTEXT")
 	if testContext == "" {
 		testContext = "kcp-stable"
-		e2e.Debugf("Env var:\"E2E_TEST_CONTEXT\" not exist use kcp-stable context")
+		e2e.Debugf(`Env var "E2E_TEST_CONTEXT" does not exist, using kcp-stable context`)
 	}
 	configJSON := ReadKubeConfig(KubeConfigPath())
 	orgServer = gjson.Get(configJSON, `clusters.#(name="`+testContext+`").cluster.server`).String()
-	e2e.Debugf("User orgnaization workspace server is: \"%s\"", orgServer)
+	e2e.Debugf(`User orgnaization workspace server is: "%s"`, orgServer)
 	client := &CLI{
 		username:        "admin",
 		execPath:        "kubectl",
 		adminConfigPath: KubeConfigPath(),
 	}
-	rootServer := strings.Join(strings.Split(orgServer, ":")[:2], ":")
+	rootServer := GetParentWsServerURL(orgServer)
 	homeServer, err = client.WithoutNamespace().WithoutKubeconf().WithoutWorkSpaceServer().NotShowInfo().Run("get").Args("workspace/~", "--server="+rootServer, "-o=jsonpath={.status.URL}").Output()
 	if err != nil {
-		e2e.Logf("Get home workspace server failed of: \"%v\"", err)
+		e2e.Logf(`Get home workspace server failed of: "%v"`, err)
 	}
-	e2e.Debugf("User home workspace server is: \"%s\"", homeServer)
+	e2e.Debugf(`User home workspace server is: "%s"`, homeServer)
 }
 
-// ReadKubeConfig return a specific kubeconfig to JSON
+// GetParentWsServerURL returns the parentServer of the input server URL
+func GetParentWsServerURL(serverURL string) string {
+	tempSlice := strings.Split(serverURL, ":")
+	return strings.Join(tempSlice[:(len(tempSlice)-1)], ":")
+}
+
+// ReadKubeConfig returns a specific kubeconfig to JSON
 func ReadKubeConfig(kubeconfigPath string) string {
 	output, err := ioutil.ReadFile(kubeconfigPath)
 	if err != nil {
-		e2e.Logf("Read kubeconfig file failed of: \"%v\"", err)
+		e2e.Logf(`Read kubeconfig file failed of: "%v"`, err)
 	}
 	output, err = yaml.YAMLToJSON(output)
 	if err != nil {
-		e2e.Logf("Parse kubeconfig file to JSON failed of: \"%v\"", err)
+		e2e.Logf(`Parse kubeconfig file failed of: "%v"`, err)
 	}
 	return string(output)
 }
