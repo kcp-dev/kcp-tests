@@ -119,7 +119,7 @@ var (
 	homeServer     string
 )
 
-// loadConfig get the User orgnaization workspace and home workspace server
+// loadConfig gets the User orgnaization workspace and home workspace servers
 func loadConfig() {
 	var err error
 	// If not set "E2E_TEST_CONTEXT" use "kcp-stable" testContext by default
@@ -132,14 +132,17 @@ func loadConfig() {
 	orgServer = gjson.Get(configJSON, `clusters.#(name="`+testContext+`").cluster.server`).String()
 	e2e.Debugf(`User orgnaization workspace server is: "%s"`, orgServer)
 	client := &CLI{
-		username:        "admin",
-		execPath:        "kubectl",
-		adminConfigPath: KubeConfigPath(),
+		execPath:               "kubectl",
+		withoutNamespace:       true,
+		withoutKubeconf:        true,
+		withoutWorkSpaceServer: true,
+		showInfo:               false,
+		adminConfigPath:        KubeConfigPath(),
 	}
 	rootServer := GetParentWsServerURL(orgServer)
-	homeServer, err = client.WithoutNamespace().WithoutKubeconf().WithoutWorkSpaceServer().NotShowInfo().Run("get").Args("workspace/~", "--server="+rootServer, "-o=jsonpath={.status.URL}").Output()
+	homeServer, err = client.Run("get").Args("workspace/~", "--server="+rootServer, "-o=jsonpath={.status.URL}").Output()
 	if err != nil {
-		e2e.Logf(`Get home workspace server failed of: "%v"`, err)
+		e2e.Logf(`Getting home workspace server failed: "%v"`, err)
 	}
 	e2e.Debugf(`User home workspace server is: "%s"`, homeServer)
 }
@@ -154,11 +157,11 @@ func GetParentWsServerURL(serverURL string) string {
 func ReadKubeConfig(kubeconfigPath string) string {
 	output, err := ioutil.ReadFile(kubeconfigPath)
 	if err != nil {
-		e2e.Logf(`Read kubeconfig file failed of: "%v"`, err)
+		e2e.Logf(`Reading kubeconfig file failed: "%v"`, err)
 	}
 	output, err = yaml.YAMLToJSON(output)
 	if err != nil {
-		e2e.Logf(`Parse kubeconfig file failed of: "%v"`, err)
+		e2e.Logf(`Parsing kubeconfig file failed: "%v"`, err)
 	}
 	return string(output)
 }
@@ -195,7 +198,6 @@ func NewCLIWithWorkSpace(wsPrefix string) *CLI {
 	g.AfterEach(client.TeardownWorkSpace)
 	client.kubeFramework = e2e.NewDefaultFramework(wsPrefix)
 	client.kubeFramework.SkipNamespaceCreation = true
-	client.username = "admin"
 	client.execPath = "kubectl"
 	client.adminConfigPath = KubeConfigPath()
 	client.showInfo = true
