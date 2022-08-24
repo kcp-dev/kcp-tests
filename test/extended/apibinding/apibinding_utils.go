@@ -1,6 +1,8 @@
 package apibinding
 
 import (
+	"fmt"
+
 	o "github.com/onsi/gomega"
 
 	exutil "github.com/kcp-dev/kcp-tests/test/extended/util"
@@ -23,17 +25,17 @@ type APIBinding struct {
 	} `json:"spec"`
 }
 
-// ABOption use function option mode to change the default values of Apibinding attributes
+// ABOption uses function option mode to change the default values of APIBinding attributes
 type ABOption func(*APIBinding)
 
-// SetAPIBindingName replace the default value of APIBinding name
+// SetAPIBindingName replaces the default value of APIBinding name
 func SetAPIBindingName(name string) ABOption {
 	return func(a *APIBinding) {
 		a.Metadata.Name = name
 	}
 }
 
-// SetAPIBindingReferencePath replace the default value of APIBinding workspace reference path
+// SetAPIBindingReferencePath replaces the default value of APIBinding workspace reference path
 func SetAPIBindingReferencePath(path string) ABOption {
 	return func(a *APIBinding) {
 		a.Spec.Reference.Workspace.Path = path
@@ -70,15 +72,26 @@ func NewAPIBinding(opts ...ABOption) APIBinding {
 	return defaultAPIBinding
 }
 
-// Create APIBinding CR
+// Create APIBinding
 func (apb *APIBinding) Create(k *exutil.CLI) {
-	outputFile, err := exutil.StructMarshalOutputToFile(apb, apb.Metadata.Name)
-	o.Expect(err).NotTo(o.HaveOccurred())
-	err = k.ApplyResourceFromSpecificFile(outputFile)
-	o.Expect(err).NotTo(o.HaveOccurred())
+	apb.CreateAsExpectedResult(k, true, "created")
 }
 
-// Delete APIBinding CR
+// CreateAsExpectedResult creates APIBinding CR and checks the created result is as expected
+func (apb *APIBinding) CreateAsExpectedResult(k *exutil.CLI, successFlag bool, containsMsg string) {
+	outputFile, err := exutil.StructMarshalOutputToFile(apb, apb.Metadata.Name)
+	o.Expect(err).NotTo(o.HaveOccurred())
+	msg, applyErr := k.ApplyResourceFromSpecificFile(outputFile)
+	if successFlag {
+		o.Expect(applyErr).ShouldNot(o.HaveOccurred())
+		o.Expect(msg).Should(o.ContainSubstring(containsMsg))
+	} else {
+		o.Expect(applyErr).Should(o.HaveOccurred())
+		o.Expect(fmt.Sprint(msg)).Should(o.ContainSubstring(containsMsg))
+	}
+}
+
+// Delete APIBinding
 func (apb *APIBinding) Delete(k *exutil.CLI) {
 	err := k.WithoutNamespace().WithoutKubeconf().Run("delete").Args("apibinding", apb.Metadata.Name).Execute()
 	o.Expect(err).NotTo(o.HaveOccurred())

@@ -652,6 +652,18 @@ func (c *CLI) HomeServerURL() string {
 	return c.homeServerURL
 }
 
+// WithOrgWorkSpaceServer replaces the current workspace with org orgnaization workspace.
+func (c *CLI) WithOrgWorkSpaceServer() *CLI {
+	c.currentWs = WorkSpace{Name: "orgWorkSpace", ServerURL: c.orgServerURL, ParentServerURL: ""}
+	return c
+}
+
+// WithSpecificWorkSpaceServer replaces the current workspace with specific workspace.
+func (c *CLI) WithSpecificWorkSpaceServer(ws WorkSpace) *CLI {
+	c.currentWs = ws
+	return c
+}
+
 // setOutput allows to override the default command output
 func (c *CLI) setOutput(out io.Writer) *CLI {
 	c.stdout = out
@@ -890,10 +902,10 @@ func (c *CLI) Execute() error {
 }
 
 // ApplyResourceFromSpecificFile use kubectl apply specific file
-func (c *CLI) ApplyResourceFromSpecificFile(filePath string) error {
+func (c *CLI) ApplyResourceFromSpecificFile(filePath string) (string, error) {
 	jsonOutput, _ := ioutil.ReadFile(filePath)
 	e2e.Debugf("The file content is: \n%s", jsonOutput)
-	return c.WithoutNamespace().WithoutKubeconf().Run("apply").Args("-f", filePath).Execute()
+	return c.WithoutNamespace().WithoutKubeconf().Run("apply").Args("-f", filePath).Output()
 }
 
 // ApplyResourceFromTemplate use kubectl apply yaml template

@@ -19,45 +19,45 @@ type Deployment struct {
 	image     string
 }
 
-// DeployOption use function option mode to change the default value of deployment parameters, E.g. name, namespace, replicas etc.
+// DeployOption uses function option mode to change the default value of deployment parameters, E.g. name, namespace, replicas etc.
 type DeployOption func(*Deployment)
 
-// SetDeploymentName replace the default value of Deployment name parameter
+// SetDeploymentName replaces the default value of Deployment name parameter
 func SetDeploymentName(name string) DeployOption {
 	return func(dep *Deployment) {
 		dep.name = name
 	}
 }
 
-// SetDeploymentNameSpace replace the default value of Deployment namespace parameter
+// SetDeploymentNameSpace replaces the default value of deployment namespace parameter
 func SetDeploymentNameSpace(namespace string) DeployOption {
 	return func(dep *Deployment) {
 		dep.namespace = namespace
 	}
 }
 
-// SetDeploymentReplicas replace the default value of Deployment replicas parameter
+// SetDeploymentReplicas replaces the default value of deployment replicas parameter
 func SetDeploymentReplicas(replicas string) DeployOption {
 	return func(dep *Deployment) {
 		dep.replicas = replicas
 	}
 }
 
-// SetDeploymentAppLabel replace the default value of Deployment appLabel parameter
+// SetDeploymentAppLabel replaces the default value of deployment appLabel parameter
 func SetDeploymentAppLabel(appLabel string) DeployOption {
 	return func(dep *Deployment) {
 		dep.appLabel = appLabel
 	}
 }
 
-// SetDeploymentImage replace the default value of Deployment Image parameter
+// SetDeploymentImage replaces the default value of deployment Image parameter
 func SetDeploymentImage(image string) DeployOption {
 	return func(dep *Deployment) {
 		dep.image = image
 	}
 }
 
-// NewDeployment create a new customized Deployment object
+// NewDeployment creates a new customized deployment object
 func NewDeployment(opts ...DeployOption) Deployment {
 	defaultDeployment := Deployment{
 		name:      "e2e-dep-" + GetRandomString(),
@@ -73,26 +73,26 @@ func NewDeployment(opts ...DeployOption) Deployment {
 	return defaultDeployment
 }
 
-// Create new Deployment with customized parameters
+// Create the deployment
 func (dep *Deployment) Create(k *CLI) {
 	err := k.WithoutNamespace().WithoutKubeconf().Run("create").Args("deployment", dep.name, "-n", dep.namespace, "--image", dep.image).Execute()
 	o.Expect(err).NotTo(o.HaveOccurred())
 }
 
-// Delete the Deployment
+// Delete the deployment
 func (dep *Deployment) Delete(k *CLI) {
 	err := k.WithoutNamespace().WithoutKubeconf().Run("delete").Args("deployment", dep.name, "-n", dep.namespace).Execute()
 	o.Expect(err).NotTo(o.HaveOccurred())
 }
 
-// GetSpecificField get Specific Field of the Deployment
-func (dep *Deployment) GetSpecificField(k *CLI, JSONPath string) (string, error) {
+// GetFieldByJSONPath gets specific field value of the deployment by jsonpath
+func (dep *Deployment) GetFieldByJSONPath(k *CLI, JSONPath string) (string, error) {
 	return k.WithoutNamespace().WithoutKubeconf().Run("get").Args("deployment", dep.name, "-n", dep.namespace, "-o", "jsonpath="+JSONPath).Output()
 }
 
-// GetReplicasNum get replicas of the Deployment
+// GetReplicasNum gets replicas of the deployment
 func (dep *Deployment) GetReplicasNum(k *CLI) string {
-	replicas, err := dep.GetSpecificField(k, "{.spec.replicas}")
+	replicas, err := dep.GetFieldByJSONPath(k, "{.spec.replicas}")
 	o.Expect(err).NotTo(o.HaveOccurred())
 	dep.replicas = replicas
 	return dep.replicas
@@ -104,10 +104,10 @@ func (dep *Deployment) Describe(k *CLI) (string, error) {
 	return deploymentDescribe, err
 }
 
-// CheckReady check whether the deployment is ready
+// CheckReady checks whether the deployment is ready
 func (dep *Deployment) CheckReady(k *CLI) (bool, error) {
 	dep.replicas = dep.GetReplicasNum(k)
-	readyReplicas, err := dep.GetSpecificField(k, "{.status.availableReplicas}")
+	readyReplicas, err := dep.GetFieldByJSONPath(k, "{.status.availableReplicas}")
 	if err != nil {
 		e2e.Logf("Get deployment/%s readyReplicas faied of \"%v\"", dep.name, err)
 		return false, err
@@ -119,8 +119,8 @@ func (dep *Deployment) CheckReady(k *CLI) (bool, error) {
 	return strings.EqualFold(dep.replicas, readyReplicas), nil
 }
 
-// WaitReady waiting the deployment become ready
-func (dep *Deployment) WaitReady(k *CLI) {
+// WaitUntilReady waits the deployment become ready
+func (dep *Deployment) WaitUntilReady(k *CLI) {
 	err := wait.Poll(5*time.Second, 180*time.Second, func() (bool, error) {
 		deploymentReady, err := dep.CheckReady(k)
 		if err != nil {

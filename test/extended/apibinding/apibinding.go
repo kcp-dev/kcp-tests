@@ -7,37 +7,39 @@ import (
 	exutil "github.com/kcp-dev/kcp-tests/test/extended/util"
 )
 
-var _ = g.Describe("[sig-apibinding]", func() {
+var _ = g.Describe("[area-apiexports]", func() {
 	defer g.GinkgoRecover()
 
 	var (
 		k = exutil.NewCLIWithWorkSpace("kcp-apibinding")
 	)
 
-	g.It("Author:pewang-Critical-[Smoke] Create an apibinding attach a workspace to the exist shared compute should work well", func() {
-		// Share compute could only access from specific test environments
-		// Skip for none supported test environments
+	g.It("Author:pewang-Critical-[Smoke][API] Verify APIBinding working with personal workspace", func() {
+		// Shared compute could be only accessed from dev-provided test environments
+		// Skip for non-supported test environments
 		exutil.PreCheckEnvSupport(k, "kcp-stable.apps.kcp-internal", "kcp-unstable.apps.kcp-internal")
+		myWs := k.WorkSpace()
 
-		g.By("# Create an apibinding attach a workspace to the exist shared compute")
-		myAPIBing := NewAPIBinding(SetAPIBindingReferencePath("root:redhat-acm-compute"), SetAPIBindingReferenceExportName("kubernetes"))
-		myAPIBing.Create(k)
-		defer myAPIBing.Delete(k)
+		g.By("# Create an apibinding attach to the orgnaization workspace for the shared compute provided by acm should be failed")
+		myAPIBinding := NewAPIBinding(SetAPIBindingReferencePath("root:redhat-acm-compute"), SetAPIBindingReferenceExportName("kubernetes"))
+		myAPIBinding.CreateAsExpectedResult(k.WithOrgWorkSpaceServer(), false, `cannot get resource "apibindings" in API group "apis.kcp.dev" at the cluster scope`)
 
-		g.By("# Create an deployment should become ready and schedule to the shared compute")
+		g.By("# Create an apibinding attach to a personal workspace for the shared compute provided by acm should be successful")
+		myAPIBinding.Create(k.WithSpecificWorkSpaceServer(myWs))
+
+		g.By("# Create workload using the shared compute provided by ACM should work well")
 		myDeployment := exutil.NewDeployment()
 		myDeployment.Create(k)
-		defer myDeployment.Delete(k)
-		myDeployment.WaitReady(k)
+		myDeployment.WaitUntilReady(k)
 
-		g.By("# Check the deployment finalizers and state")
-		labels, err := myDeployment.GetSpecificField(k, "{.metadata.labels}")
+		g.By("# Check the deployment's finalizers and state should be correct")
+		labels, err := myDeployment.GetFieldByJSONPath(k, "{.metadata.labels}")
 		o.Expect(err).NotTo(o.HaveOccurred())
 		o.Expect(labels).Should(o.And(
 			o.ContainSubstring("state.workload.kcp.dev"),
 			o.ContainSubstring("Sync"),
 		))
-		finalizers, err := myDeployment.GetSpecificField(k, "{.metadata.finalizers}")
+		finalizers, err := myDeployment.GetFieldByJSONPath(k, "{.metadata.finalizers}")
 		o.Expect(err).NotTo(o.HaveOccurred())
 		o.Expect(finalizers).Should(o.ContainSubstring("workload.kcp.dev/syncer"))
 	})

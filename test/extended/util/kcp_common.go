@@ -140,7 +140,7 @@ func PreCheckEnvSupport(k *CLI, envFlags ...string) error {
 			return nil
 		}
 	}
-	g.Skip("Non support environment: \"" + currentServer + "\"")
+	g.Skip(`Non-supported environment: "` + currentServer + `"`)
 	return nil
 }
 
