@@ -14,17 +14,17 @@ var _ = g.Describe("[area-apiexports]", func() {
 		k = exutil.NewCLIWithWorkSpace("kcp-apibinding")
 	)
 
-	g.It("Author:pewang-Critical-[Smoke][API] Verify APIBinding working with personal workspace", func() {
+	g.It("Author:pewang-Critical-[Smoke] Verify APIBinding working with personal workspace", func() {
 		// Shared compute could be only accessed from dev-provided test environments
 		// Skip for non-supported test environments
 		exutil.PreCheckEnvSupport(k, "kcp-stable.apps.kcp-internal", "kcp-unstable.apps.kcp-internal")
 		myWs := k.WorkSpace()
 
-		g.By("# Create an apibinding attach to the orgnaization workspace for the shared compute provided by acm should be failed")
+		g.By("# Apibinding can't be used in an organization workspace")
 		myAPIBinding := NewAPIBinding(SetAPIBindingReferencePath("root:redhat-acm-compute"), SetAPIBindingReferenceExportName("kubernetes"))
 		myAPIBinding.CreateAsExpectedResult(k.WithOrgWorkSpaceServer(), false, `cannot get resource "apibindings" in API group "apis.kcp.dev" at the cluster scope`)
 
-		g.By("# Create an apibinding attach to a personal workspace for the shared compute provided by acm should be successful")
+		g.By("# Validate apibinding creation is successful in user home workspace")
 		myAPIBinding.Create(k.WithSpecificWorkSpaceServer(myWs))
 
 		g.By("# Create workload using the shared compute provided by ACM should work well")

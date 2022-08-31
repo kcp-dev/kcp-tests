@@ -10,7 +10,7 @@ import (
 	e2e "k8s.io/kubernetes/test/e2e/framework"
 )
 
-// Deployment struct defination
+// Deployment struct definition
 type Deployment struct {
 	name      string
 	namespace string
@@ -22,35 +22,35 @@ type Deployment struct {
 // DeployOption uses function option mode to change the default value of deployment parameters, E.g. name, namespace, replicas etc.
 type DeployOption func(*Deployment)
 
-// SetDeploymentName replaces the default value of Deployment name parameter
+// SetDeploymentName sets the deployment's name
 func SetDeploymentName(name string) DeployOption {
 	return func(dep *Deployment) {
 		dep.name = name
 	}
 }
 
-// SetDeploymentNameSpace replaces the default value of deployment namespace parameter
+// SetDeploymentNameSpace sets the deployment's namespace
 func SetDeploymentNameSpace(namespace string) DeployOption {
 	return func(dep *Deployment) {
 		dep.namespace = namespace
 	}
 }
 
-// SetDeploymentReplicas replaces the default value of deployment replicas parameter
+// SetDeploymentReplicas sets the deployment's replicas
 func SetDeploymentReplicas(replicas string) DeployOption {
 	return func(dep *Deployment) {
 		dep.replicas = replicas
 	}
 }
 
-// SetDeploymentAppLabel replaces the default value of deployment appLabel parameter
+// SetDeploymentAppLabel sets the deployment's appLabel
 func SetDeploymentAppLabel(appLabel string) DeployOption {
 	return func(dep *Deployment) {
 		dep.appLabel = appLabel
 	}
 }
 
-// SetDeploymentImage replaces the default value of deployment Image parameter
+// SetDeploymentImage sets the deployment's image
 func SetDeploymentImage(image string) DeployOption {
 	return func(dep *Deployment) {
 		dep.image = image

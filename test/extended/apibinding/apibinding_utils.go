@@ -8,7 +8,7 @@ import (
 	exutil "github.com/kcp-dev/kcp-tests/test/extended/util"
 )
 
-// APIBinding struct defination
+// APIBinding struct definition
 type APIBinding struct {
 	APIVersion string `json:"apiVersion"`
 	Kind       string `json:"kind"`
@@ -28,21 +28,21 @@ type APIBinding struct {
 // ABOption uses function option mode to change the default values of APIBinding attributes
 type ABOption func(*APIBinding)
 
-// SetAPIBindingName replaces the default value of APIBinding name
+// SetAPIBindingName sets the APIBinding's name
 func SetAPIBindingName(name string) ABOption {
 	return func(a *APIBinding) {
 		a.Metadata.Name = name
 	}
 }
 
-// SetAPIBindingReferencePath replaces the default value of APIBinding workspace reference path
+// SetAPIBindingReferencePath sets the APIBinding's workspace reference path
 func SetAPIBindingReferencePath(path string) ABOption {
 	return func(a *APIBinding) {
 		a.Spec.Reference.Workspace.Path = path
 	}
 }
 
-// SetAPIBindingReferenceExportName replace the default value of APIBinding workspace reference exportName
+// SetAPIBindingReferenceExportName sets the APIBinding's workspace reference exportName
 func SetAPIBindingReferenceExportName(exportName string) ABOption {
 	return func(a *APIBinding) {
 		a.Spec.Reference.Workspace.ExportName = exportName
