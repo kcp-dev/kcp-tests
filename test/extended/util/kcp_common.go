@@ -7,12 +7,14 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
 	g "github.com/onsi/ginkgo"
 	o "github.com/onsi/gomega"
+	"github.com/tidwall/gjson"
 	e2e "k8s.io/kubernetes/test/e2e/framework"
 )
 
@@ -189,4 +191,18 @@ func StructMarshalOutputToFile(customStruct interface{}, filename string) (strin
 	}
 	path := filepath.Join(e2e.TestContext.OutputDir, filename)
 	return path, ioutil.WriteFile(path, rawOutput, 0644)
+}
+
+// GetKcpServerVersion gets the kcp server version
+func GetKcpServerVersion(k *CLI) (string, error) {
+	var (
+		output, kcpServerVersion string
+		err                      error
+	)
+	output, err = k.Run("version").Args("-o", "json").Output()
+	if err == nil {
+		kcpServerVersion = gjson.Get(output, `serverVersion.gitVersion`).String()
+		kcpServerVersion = strings.TrimPrefix(regexp.MustCompile(`kcp-v\d+(.\d+){0,2}`).FindString(kcpServerVersion), "kcp-")
+	}
+	return kcpServerVersion, err
 }

@@ -10,7 +10,7 @@ import (
 	exutil "github.com/kcp-dev/kcp-tests/test/extended/util"
 )
 
-var _ = g.Describe("[sig-common-version]", func() {
+var _ = g.Describe("[area/common-version]", func() {
 	defer g.GinkgoRecover()
 
 	var (
