@@ -107,9 +107,10 @@ type resourceRef struct {
 
 // WorkSpace defination
 type WorkSpace struct {
-	Name            string // WorkSpace Name            E.g. e2e-test-kcp-workspace-xxxxx
-	ServerURL       string // WorkSpace ServerURL       E.g. https://{{kcp-service-domain}}/clusters/root:orgID:e2e-test-kcp-workspace-xxxxx
-	ParentServerURL string // WorkSpace ParentServerURL E.g. https://{{kcp-service-domain}}/clusters/root:orgID
+	Name            string   // WorkSpace Name                                      E.g. e2e-test-kcp-workspace-xxxxx
+	Namespaces      []string // WorkSpace's Namespaces created by SetupNameSpace()  E.g. e2e-ns-kcp-workspace-xxxxx
+	ServerURL       string   // WorkSpace ServerURL                                 E.g. https://{{kcp-service-domain}}/clusters/root:orgID:e2e-test-kcp-workspace-xxxxx
+	ParentServerURL string   // WorkSpace ParentServerURL                           E.g. https://{{kcp-service-domain}}/clusters/root:orgID
 }
 
 var (
@@ -429,9 +430,26 @@ func (c *CLI) TeardownProject() {
 	}
 }
 
+// SetupNamespace creates a new namespace
+func (c *CLI) SetupNamespace() {
+	newNamespace := names.SimpleNameGenerator.GenerateName(fmt.Sprintf("e2e-ns-%s-", c.kubeFramework.BaseName))
+	e2e.Logf("Creating namespace %q", newNamespace)
+	output, errinfo := c.WithoutNamespace().WithoutKubeconf().Run("create").Args("namespace", newNamespace).Output()
+	o.Expect(errinfo).NotTo(o.HaveOccurred())
+	o.Expect(output).Should(o.ContainSubstring("created"))
+	c.currentWs.Namespaces = append(c.currentWs.Namespaces, newNamespace)
+	c.workSpacesToDelete[len(c.workSpacesToDelete)-1].Namespaces = append(c.workSpacesToDelete[len(c.workSpacesToDelete)-1].Namespaces, newNamespace)
+}
+
 // SetupWorkSpace creates a new WorkSpace under the org workspace
 func (c *CLI) SetupWorkSpace() {
 	c.SetupWorkSpaceWithSpecificPath(c.homeServerURL)
+}
+
+// SetupWorkSpaceWithNamespace creates a new WorkSpace under the org workspace and creates a namespace under the WorkSpace
+func (c *CLI) SetupWorkSpaceWithNamespace() {
+	c.SetupWorkSpaceWithSpecificPath(c.homeServerURL)
+	c.SetupNamespace()
 }
 
 // SetupWorkSpaceWithSpecificPath creates a new WorkSpace with specific paths
@@ -471,6 +489,12 @@ func (c *CLI) TeardownWorkSpace() {
 		})
 		e2e.Debugf("***%v***", c.workSpacesToDelete)
 		for _, ws := range c.workSpacesToDelete {
+			if len(ws.Namespaces) > 0 {
+				for _, ns := range ws.Namespaces {
+					err := c.WithoutNamespace().WithoutKubeconf().WithoutWorkSpaceServer().Run("delete").Args("--server="+ws.ServerURL, "namespace", ns).Execute()
+					e2e.Logf("Deleted workspace/%s's namespace/%s, err: %v", ws.Name, ns, err)
+				}
+			}
 			err := c.WithoutNamespace().WithoutKubeconf().WithoutWorkSpaceServer().Run("delete").Args("--server="+ws.ParentServerURL, "workspace", ws.Name).Execute()
 			e2e.Logf("Deleted %v, err: %v", ws.Name, err)
 		}

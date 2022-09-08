@@ -81,13 +81,12 @@ func (dep *Deployment) Create(k *CLI) {
 
 // Delete the deployment
 func (dep *Deployment) Delete(k *CLI) {
-	err := k.WithoutNamespace().WithoutKubeconf().Run("delete").Args("deployment", dep.Name, "-n", dep.Namespace).Execute()
-	o.Expect(err).NotTo(o.HaveOccurred())
+	o.Expect(dep.Clean(k)).NotTo(o.HaveOccurred())
 }
 
 // Clean the deployment resource
-func (dep *Deployment) Clean(k *CLI) {
-	k.WithoutNamespace().WithoutKubeconf().Run("delete").Args("deployment", dep.Name, "-n", dep.Namespace).Execute()
+func (dep *Deployment) Clean(k *CLI) error {
+	return k.WithoutNamespace().WithoutKubeconf().Run("delete").Args("deployment", dep.Name, "-n", dep.Namespace).Execute()
 }
 
 // GetFieldByJSONPath gets specific field value of the deployment by jsonpath
@@ -162,4 +161,8 @@ func (dep *Deployment) CheckDisplayAttributes(k *CLI) {
 		o.ContainSubstring("AVAILABLE"),
 		o.ContainSubstring("AGE"),
 	))
+	displayLines := strings.Split(string(deploymentInfo), "\n")
+	schemaAttributes := strings.Fields(strings.TrimSpace(displayLines[0]))
+	attributesValues := strings.Fields(strings.TrimSpace(displayLines[0]))
+	o.Expect(len(schemaAttributes)).Should(o.Equal(len(attributesValues)))
 }

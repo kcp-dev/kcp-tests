@@ -199,7 +199,7 @@ func GetKcpServerVersion(k *CLI) (string, error) {
 		output, kcpServerVersion string
 		err                      error
 	)
-	output, err = k.Run("version").Args("-o", "json").Output()
+	output, err = k.WithoutNamespace().Run("version").Args("-o", "json").Output()
 	if err == nil {
 		kcpServerVersion = gjson.Get(output, `serverVersion.gitVersion`).String()
 		kcpServerVersion = strings.TrimPrefix(regexp.MustCompile(`kcp-v\d+(.\d+){0,2}`).FindString(kcpServerVersion), "kcp-")

@@ -2,13 +2,11 @@ package syncer
 
 import (
 	"os"
-	"strings"
 	"time"
 
 	g "github.com/onsi/ginkgo"
 	o "github.com/onsi/gomega"
 
-	apb "github.com/kcp-dev/kcp-tests/test/extended/apibinding"
 	exutil "github.com/kcp-dev/kcp-tests/test/extended/util"
 )
 
@@ -24,6 +22,7 @@ var _ = g.Describe("[area/transparent-multi-cluster]", func() {
 		if pclusterKubeconfig == "" {
 			g.Skip("None pcluster kubeconfig set for the test scenario")
 		}
+		k.SetupWorkSpaceWithNamespace()
 		myWs := k.WorkSpace()
 		k.SetGuestKubeconf(pclusterKubeconfig)
 
@@ -40,28 +39,26 @@ var _ = g.Describe("[area/transparent-multi-cluster]", func() {
 		mySyncer.WaitUntilReady(k)
 		mySyncer.CheckDisplayAttributes(k)
 
-		g.By("# Create a new workspace and create an APIBinding to attach the compute to the new workspace")
-		k.SetupWorkSpace()
-		tempSlice := strings.Split(myWs.ServerURL, "/")
-		myAPIBinding := apb.NewAPIBinding(apb.SetAPIBindingReferencePath(tempSlice[len(tempSlice)-1]), apb.SetAPIBindingReferenceExportName("kubernetes"))
-		myAPIBinding.Create(k)
-		defer myAPIBinding.Clean(k)
-
 		g.By("# Create workload using the shared compute should work well")
-		myDeployment := exutil.NewDeployment()
-		myDeployment.Create(k)
+		myDeployment := exutil.NewDeployment(exutil.SetDeploymentNameSpace(myWs.Namespaces[0]))
 		defer myDeployment.Clean(k)
+		myDeployment.Create(k)
 		myDeployment.WaitUntilReady(k)
 		myDeployment.CheckDisplayAttributes(k)
+
+		g.By("# Check the deployment's status on pcluster")
+		avaiablableReplicasOnPcluster, getError := k.AsGuestKubeconf().WithoutNamespace().WithoutWorkSpaceServer().Run("get").Args("deployment", "-A", `-o=jsonpath={.items[?(@.metadata.name=="`+myDeployment.Name+`")].status.availableReplicas}`).Output()
+		o.Expect(getError).ShouldNot(o.HaveOccurred())
+		o.Expect(avaiablableReplicasOnPcluster).Should(o.Equal("1"))
 
 		g.By("# Scale up the deployment replicas and wait for scaling up successfully")
 		myDeployment.ScaleReplicas(k, "10")
 		myDeployment.WaitUntilReady(k)
 
 		g.By("# Check the deployment replicas number on pcluster is as expected")
-		actualReplicas, getError := k.AsGuestKubeconf().WithoutNamespace().WithoutWorkSpaceServer().Run("get").Args("deployment", "-A", `-o=jsonpath={.items[?(@.metadata.name=="`+myDeployment.Name+`")].spec.replicas}`).Output()
+		avaiablableReplicasOnPcluster, getError = k.AsGuestKubeconf().WithoutNamespace().WithoutWorkSpaceServer().Run("get").Args("deployment", "-A", `-o=jsonpath={.items[?(@.metadata.name=="`+myDeployment.Name+`")].status.availableReplicas}`).Output()
 		o.Expect(getError).ShouldNot(o.HaveOccurred())
-		o.Expect(actualReplicas).Should(o.Equal("10"))
+		o.Expect(avaiablableReplicasOnPcluster).Should(o.Equal("10"))
 
 		g.By("# Delete the workload and verify the deployment is no longer present in the pcluster")
 		myDeployment.Delete(k)

@@ -104,33 +104,39 @@ func (s *SyncTarget) WaitUntilReady(k *exutil.CLI) {
 
 // CheckDisplayAttributes checks the SyncTarget info showing the expected columns
 func (s *SyncTarget) CheckDisplayAttributes(k *exutil.CLI) {
+	// Check the display attributes
 	syncTargetInfo, err := k.WithoutNamespace().WithoutKubeconf().WithoutWorkSpaceServer().Run("get").Args("--server="+s.WorkSpaceServer, "synctarget", s.Name).Output()
 	o.Expect(err).NotTo(o.HaveOccurred())
 	o.Expect(syncTargetInfo).Should(o.And(
 		o.ContainSubstring("NAME"),
 		o.ContainSubstring("AGE"),
 	))
+	// Check the display attributes with "-o wide" option
 	syncTargetInfo, err = k.WithoutNamespace().WithoutKubeconf().Run("get").Args("synctarget", s.Name, "-o", "wide").Output()
 	o.Expect(err).NotTo(o.HaveOccurred())
 	o.Expect(syncTargetInfo).Should(o.And(
 		o.ContainSubstring("NAME"),
 		o.ContainSubstring("LOCATION"),
 		o.ContainSubstring("READY"),
-		o.ContainSubstring("SYNCED"),
-		o.ContainSubstring("API"),
-		o.ContainSubstring("RESOURCES"),
+		o.ContainSubstring("SYNCED API RESOURCES"),
 		o.ContainSubstring("KEY"),
 		o.ContainSubstring("AGE"),
 	))
+	// Check all the display attributes not be empty
+	// Known issue: https://github.com/kcp-dev/kcp/issues/943
+	// TODO: Will add the checkpoint back when the issue solved
+	// displayLines := strings.Split(string(syncTargetInfo), "\n")
+	// schemaAttributes := strings.Fields(strings.TrimSpace(displayLines[0]))
+	// attributesValues := strings.Fields(strings.TrimSpace(displayLines[0]))
+	// o.Expect(len(schemaAttributes)).Should(o.Equal(len(attributesValues)))
 }
 
 // Delete the SyncTarget
 func (s *SyncTarget) Delete(k *exutil.CLI) {
-	err := k.WithoutNamespace().WithoutKubeconf().WithoutWorkSpaceServer().Run("delete").Args("--server="+s.WorkSpaceServer, "synctarget", s.Name).Execute()
-	o.Expect(err).NotTo(o.HaveOccurred())
+	o.Expect(s.Clean(k)).NotTo(o.HaveOccurred())
 }
 
 // Clean the SyncTarget resource
-func (s *SyncTarget) Clean(k *exutil.CLI) {
-	k.WithoutNamespace().WithoutKubeconf().WithoutWorkSpaceServer().Run("delete").Args("--server="+s.WorkSpaceServer, "synctarget", s.Name).Execute()
+func (s *SyncTarget) Clean(k *exutil.CLI) error {
+	return k.WithoutNamespace().WithoutKubeconf().WithoutWorkSpaceServer().Run("delete").Args("--server="+s.WorkSpaceServer, "synctarget", s.Name).Execute()
 }
