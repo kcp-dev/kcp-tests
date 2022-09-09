@@ -20,7 +20,7 @@ var _ = g.Describe("[area/transparent-multi-cluster]", func() {
 	g.It("Author:pewang-Critical-[Smoke][BYO] Validate create, modifying, deleting a deployment from KCP gets synced to the pcluster", func() {
 		pclusterKubeconfig := os.Getenv("PCLUSTER_KUBECONFIG")
 		if pclusterKubeconfig == "" {
-			g.Skip("None pcluster kubeconfig set for the test scenario")
+			g.Skip("No pcluster kubeconfig set for the test scenario")
 		}
 		k.SetupWorkSpaceWithNamespace()
 		myWs := k.WorkSpace()
