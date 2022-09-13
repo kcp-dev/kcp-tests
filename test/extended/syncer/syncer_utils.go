@@ -83,7 +83,7 @@ func (s *SyncTarget) GetFieldByJSONPath(k *exutil.CLI, JSONPath string) (string,
 func (s *SyncTarget) CheckReady(k *exutil.CLI) (bool, error) {
 	readyFlag, err := s.GetFieldByJSONPath(k, `{.status.conditions[?(@.type=="Ready")].status}`)
 	if err != nil {
-		e2e.Logf(`Get SyncTarget/%s status faied: "%v"`, s.Name, err)
+		e2e.Logf(`Getting SyncTarget/%s status failed: "%v"`, s.Name, err)
 		return false, err
 	}
 	e2e.Logf("SyncTarget/%s ready condition is %s", s.Name, readyFlag)
@@ -99,7 +99,7 @@ func (s *SyncTarget) WaitUntilReady(k *exutil.CLI) {
 		}
 		return SyncTargetReady, nil
 	})
-	exutil.AssertWaitPollNoErr(err, fmt.Sprintf("Waiting SyncTarget/%s become ready timeout", s.Name))
+	exutil.AssertWaitPollNoErr(err, fmt.Sprintf("Waiting for SyncTarget/%s becomes ready timeout", s.Name))
 }
 
 // CheckDisplayAttributes checks the SyncTarget info showing the expected columns

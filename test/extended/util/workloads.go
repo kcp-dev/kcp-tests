@@ -113,13 +113,13 @@ func (dep *Deployment) CheckReady(k *CLI) (bool, error) {
 	dep.Replicas = dep.GetReplicasNum(k)
 	readyReplicas, err := dep.GetFieldByJSONPath(k, "{.status.availableReplicas}")
 	if err != nil {
-		e2e.Logf("Get deployment/%s readyReplicas faied of \"%v\"", dep.Name, err)
+		e2e.Logf("Getting deployment/%s readyReplicas failed of \"%v\"", dep.Name, err)
 		return false, err
 	}
 	if dep.Replicas == "0" && readyReplicas == "" {
 		readyReplicas = "0"
 	}
-	e2e.Logf("deployment/%s readyReplicas is %s", dep.Name, readyReplicas)
+	e2e.Logf("Deployment/%s readyReplicas is %s", dep.Name, readyReplicas)
 	return strings.EqualFold(dep.Replicas, readyReplicas), nil
 }
 
@@ -133,12 +133,12 @@ func (dep *Deployment) WaitUntilReady(k *CLI) {
 		if !deploymentReady {
 			return deploymentReady, nil
 		}
-		e2e.Logf(dep.Name + " availableReplicas is as expected")
+		e2e.Logf("Deployment/%s's availableReplicas is as expected", dep.Name)
 		return deploymentReady, nil
 	})
 	if err != nil {
 		describeInfo, _ := dep.Describe(k)
-		e2e.Logf("$ oc describe pod %s:\n%s", dep.Name, describeInfo)
+		e2e.Logf("Deployment/%s's detail info is:\n%s", dep.Name, describeInfo)
 	}
 	AssertWaitPollNoErr(err, fmt.Sprintf("Deployment %s not ready", dep.Name))
 }
