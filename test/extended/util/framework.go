@@ -2,6 +2,7 @@ package util
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -311,7 +312,7 @@ func WaitForOpenShiftNamespaceImageStreams(oc *CLI) error {
 	return fmt.Errorf("Failed to import expected imagestreams")
 }
 
-//DumpImageStreams will dump both the openshift namespace and local namespace imagestreams
+// DumpImageStreams will dump both the openshift namespace and local namespace imagestreams
 // as part of debugging when the language imagestreams in the openshift namespace seem to disappear
 func DumpImageStreams(oc *CLI) {
 	out, err := oc.AsAdmin().Run("get").Args("is", "-n", "openshift", "-o", "yaml", "--config", KubeConfigPath()).Output()
@@ -1363,7 +1364,7 @@ func KubeConfigPath() string {
 	return os.Getenv("KUBECONFIG")
 }
 
-//ArtifactDirPath returns the value of ARTIFACT_DIR environment variable
+// ArtifactDirPath returns the value of ARTIFACT_DIR environment variable
 func ArtifactDirPath() string {
 	path := os.Getenv("ARTIFACT_DIR")
 	o.Expect(path).NotTo(o.BeNil())
@@ -1371,8 +1372,8 @@ func ArtifactDirPath() string {
 	return path
 }
 
-//ArtifactPath returns the absolute path to the fix artifact file
-//The path is relative to ARTIFACT_DIR
+// ArtifactPath returns the absolute path to the fix artifact file
+// The path is relative to ARTIFACT_DIR
 func ArtifactPath(elem ...string) string {
 	return filepath.Join(append([]string{ArtifactDirPath()}, elem...)...)
 }
@@ -1434,6 +1435,35 @@ func FixturePath(elem ...string) string {
 		panic(err)
 	}
 	return p
+}
+
+// ParseFileVariables parse the given file and return a new file with its variables being replaced
+func ParseFileVariables(original_filepath string, args map[string]string) string {
+	content, err := ioutil.ReadFile(original_filepath)
+	o.Expect(err).ShouldNot(o.HaveOccurred())
+
+	for key, value := range args {
+		key := fmt.Sprintf("$(%s)", key)
+		content = bytes.Replace(content, []byte(key), []byte(value), -1)
+	}
+
+	fixtureDirLock.Do(func() {
+		dir, err := ioutil.TempDir("", "fixture-testdata-dir")
+		if err != nil {
+			panic(err)
+		}
+		fixtureDir = dir
+	})
+
+	ext := filepath.Ext(original_filepath)
+	tmpfile, err := ioutil.TempFile(fixtureDir, "parsed-varible-file.*"+ext)
+	if err != nil {
+		panic(err)
+	}
+	if _, err = tmpfile.Write(content); err != nil {
+		panic(err)
+	}
+	return tmpfile.Name()
 }
 
 // FetchURL grabs the output from the specified url and returns it.

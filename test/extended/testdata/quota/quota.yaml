@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  annotations:
+    experimental.quota.kcp.dev/cluster-scoped: "true"
+  name: quota
+spec:
+  hard:
+    count/configmaps: "$(NUM_CONFIGMAP)"
+    count/secrets: "$(NUM_SECRET)"

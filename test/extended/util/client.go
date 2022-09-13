@@ -791,6 +791,7 @@ func (c *CLI) Output() (string, error) {
 	if c.verbose {
 		fmt.Printf("DEBUG: oc %s\n", c.printCmd())
 	}
+
 	finalArgs := c.assembleArgs()
 	cmd := exec.Command(c.execPath, finalArgs...)
 	cmd.Stdin = c.stdin
@@ -935,33 +936,6 @@ func (c *CLI) Execute() error {
 	}
 	os.Stdout.Sync()
 	return err
-}
-
-// ApplyResourceFromSpecificFile use kubectl apply specific file
-func (c *CLI) ApplyResourceFromSpecificFile(filePath string) (string, error) {
-	jsonOutput, _ := ioutil.ReadFile(filePath)
-	e2e.Debugf("The file content is: \n%s", jsonOutput)
-	return c.WithoutNamespace().WithoutKubeconf().Run("apply").Args("-f", filePath).Output()
-}
-
-// ApplyResourceFromTemplate use kubectl apply yaml template
-func (c *CLI) ApplyResourceFromTemplate(k *CLI, parameters ...string) error {
-	var configFile string
-	err := wait.Poll(3*time.Second, 15*time.Second, func() (bool, error) {
-		output, err := c.WithoutNamespace().WithoutWorkSpaceServer().WithoutKubeconf().Run("process").Args(parameters...).OutputToFile(GetRandomString() + "config.json")
-		if err != nil {
-			e2e.Logf("the err:%v, and try next round", err)
-			return false, nil
-		}
-		configFile = output
-		return true, nil
-	})
-	AssertWaitPollNoErr(err, fmt.Sprintf("as admin fail to process %v", parameters))
-
-	e2e.Logf("the file of resource is %s", configFile)
-	jsonOutput, _ := ioutil.ReadFile(configFile)
-	e2e.Debugf("The file content is: \n%s", jsonOutput)
-	return c.WithoutNamespace().WithoutWorkSpaceServer().WithoutKubeconf().Run("apply").Args("-f", configFile).Execute()
 }
 
 // FatalErr exits the test in case a fatal error has occurred.
