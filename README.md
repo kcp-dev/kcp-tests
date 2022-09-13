@@ -6,7 +6,23 @@ This repository holds the kcp tests that tests against the publicly available  i
 * Golang installed. See [Installing Golang](https://golang.org/doc/install),the newer the better.
         * Ensure you install Golang from a binary release [found here](https://golang.org/dl/), not with a package manager such as `dnf`
 * golint installed. See [Installing golint](https://github.com/golang/lint#installation)
-* Have the environment variable `KUBECONFIG` set pointing to your cluster
+* Install [kubelogin](https://github.com/int128/kubelogin.git) and [KCP kubectl plugin](https://github.com/kcp-dev/kcp.git)
+      * Ensure your installed KCP kubectl plugin version is the same with the kcp service version
+  ```
+  $ git clone https://github.com/kcp-dev/kcp.git
+  # E.g. Install the release-0.5 version KCP kubectl plugin
+  # commitID: "fccfb61" of release-0.5 branch/tag
+  $ git checkout fccfb61
+  $ make install WHAT=./cmd/kubectl-kcp && make install WHAT=./cmd/kubectl-workspaces && make install WHAT=./cmd/kubectl-ws
+  ```
+
+* Have the environment variable `KUBECONFIG` set pointing to your kcp service
+* Login the kcp service via SSO (Single Sign On)
+  ```
+  kubectl oidc-login get-token --oidc-issuer-url=https://sso.xxxx.com/auth
+   --oidc-client-id=cloud-services --oidc-redirect-url-hostname=127.0.0.1
+  ```
+* Have the environment variable `PCLUSTER_KUBECONFIG` set pointing to your BYO cluster(Bring your own cluster), it's optional, you should set it if your test cases need to operate BYO cluster. The test cases which need to operate BYO cluster will be skipped by no environment variable `PCLUSTER_KUBECONFIG` found without setting it.
 
 ### Include new test folder
 If you create a new folder for your test case, **add the path** to the [include.go](https://github.com/openshift/openshift-tests-private/blob/master/test/extended/include.go)
@@ -17,77 +33,81 @@ Run `make update` to update the bindata. For example, you can see the bindata ha
 ```console
 $ git status
 	modified:   test/extended/testdata/bindata.go
-	new file:   test/extended/testdata/olm/etcd-subscription-manual.yaml
+	new file:   test/extended/testdata/kcp/xxxx.yaml
 ```
 
 ### Compile the executable binary
 Note that we use the `go module` for package management, the previous `go path` is deprecated.
 ```console
-$ git clone git@github.com:openshift/openshift-tests-private.git
-$ cd openshift-tests-private/
+$ git clone git@github.com:kcp-dev/kcp-tests.git
+$ cd kcp-tests/
 $ make build
 mkdir -p "bin"
-export GO111MODULE="on" && export GOFLAGS="" && go build -o "bin" "./cmd/extended-platform-tests"
-$ ls -hl ./bin/extended-platform-tests 
--rwxrwxr-x. 1 cloud-user cloud-user 165M Jun 24 22:17 ./bin/extended-platform-tests
+export GO111MODULE="on" && export GOFLAGS="" && go build  -ldflags="-s -w" -mod=mod -o "bin" "./cmd/kcp-tests"
+$ ls -hl ./bin/kcp-tests 
+-rwxrwxr-x. 1 cloud-user cloud-user 106M Sep 13 14:41 ./bin/kcp-tests
 ```
 
 ## Contribution 
 Below are the general steps for submitting a PR to master branch. First, you should **Fork** this repo to your own Github account.
 ```console
-$ git remote add <Your Name> git@github.com:<Your Github Account>/openshift-tests-private.git
-$ git pull origin master
+$ git remote add <Your Name> git@github.com:<Your Github Account>/kcp-tests.git
+$ git pull origin main
 $ git checkout -b <Branch Name>
 $ git add xxx
-$ git diff master --name-only |grep ".go$"| grep -v "bindata.go$" | xargs -n1 golint
+$ git diff main --name-only |grep ".go$"| grep -v "bindata.go$" | xargs -n1 golint
   Please fix all golint error
-$ git diff master --name-only |grep ".go$"| grep -v "bindata.go$" | xargs gofmt -s -l
+$ git diff main --name-only |grep ".go$"| grep -v "bindata.go$" | xargs gofmt -s -l
   Please fix all gofmt error, running 'gofmt -s -d [file_path]' or autocorrect with 'gofmt -s -w [file_path]'
 $ git add xxx
 $ make build
-$ ./bin/extended-platform-tests run all --dry-run |grep <Test Case ID>|./bin/extended-platform-tests run -f -
+$ ./bin/kcp-tests run all --dry-run |grep <Test Case Name>|./bin/kcp-tests run -f -
 $ git commit -m "xxx"
 $ git push <Your Name> <Branch Name>:<Branch Name>
 ```
 And then there will be a prompt in your Github repo console to open a PR, click it to do so.
 
 ### Run the automation test case
-The binary finds the test case via searching for the test case title. It searches the test case titles by RE (`Regular Expression`). So, you can filter your test cases by using `grep`. Such as, if I want to run all [OLM test cases](https://github.com/openshift/openshift-tests-private/blob/master/test/extended/operators/olm.go#L21), and all of them contain the `OLM` letter, I can use the `grep OLM` to filter them, as follows: 
+The binary finds the test case via searching for the test case title. It searches the test case titles by RE (`Regular Expression`). So, you can filter your test cases by using `grep`. 
+##### Run an area automation test cases
+If I want to run all [workspaces test cases](https://github.com/kcp-dev/kcp-tests/blob/main/test/extended/workspacetype/workspace.go#L14), and all of them contain the `area/workspaces` key word, I can use the `grep "area/workspaces"` to filter them, as follows: 
 ```console
-$ ./bin/extended-platform-tests run all --dry-run | grep "OLM" | ./bin/extended-platform-tests run -f -
-I0624 22:48:36.599578 2404223 test_context.go:419] Tolerating taints "node-role.kubernetes.io/master" when considering if nodes are ready
-"[sig-operators] OLM for an end user handle common object Author:kuiwang-Medium-22259-marketplace operator CR status on a running cluster [Exclusive] [Serial]"
+$ ./bin/kcp-tests run all --dry-run | grep "area/workspaces" | ./bin/kcp-tests run -f -
+"[area/workspaces] Author:pewang-Medium-[Smoke] Multi levels workspaces lifecycle should work [Suite:kcp/smoke/parallel/minimal]"
+"[area/workspaces] Author:zxiao-Medium-[Serial] I can create context for a specific workspace and use it [Suite:kcp/smoke/serial]"
 ...
 ```
 You can save the above output to a file and run it:
 ```console
 $ ./bin/extended-platform-tests run -f <your file path/name>
 ```
-If you want to run a test case, such as `g.It("Author:jiazha-Critical-23440-can subscribe to the etcd operator  [Serial]"`, since the `TestCaseID` is unique, you can do:
+##### Run all smoke automation test cases
+If you want to run all smoke test cases which has the `[Smoke]` label, you can do:
 ```console
-$ ./bin/extended-platform-tests run all --dry-run|grep "23440"|./bin/extended-platform-tests run --junit-dir=./ -f -
+$ ./bin/kcp-tests run smoke
+```
+##### Run a single automation test case
+If you want to run a single test case, such as `g.It("Author:pewang-Medium-[Smoke] Multi levels workspaces lifecycle should work"`, you can do:
+```console
+$ ./bin/kcp-tests run all --dry-run|grep "Multi levels workspaces lifecycle should work"|./bin/kcp-tests run --junit-dir=./ -f -
 ```
 
 ### Debugging
-#### Keep generated temporary project
-Sometime, we want to **keep the generated namespace for debugging**. Just add the Env Var: `export DELETE_NAMESPACE=false`. These random namespaces will be kept, like below:
+#### Keep generated temporary workspaces
+Sometime, we want to **keep the generated workspaces for debugging**. Just add the Env Var: `export DELETE_WORKSPACE=false`. These random workspaces will be kept, like below:
 ```console
 ...
 Dec 18 09:39:33.448: INFO: Running AfterSuite actions on all nodes
-Dec 18 09:39:33.448: INFO: Waiting up to 7m0s for all (but 100) nodes to be ready
-Dec 18 09:39:33.511: INFO: Found DeleteNamespace=false, skipping namespace deletion!
-Dec 18 09:39:33.511: INFO: Running AfterSuite actions on node 1
 ...
-1 pass, 0 skip (2m50s)
-[root@preserve-olm-env openshift-tests-private]# oc get ns
-NAME                                               STATUS   AGE
-default                                            Active   4h46m
-e2e-test-olm-a-a92jyymd-lmgj6                      Active   4m28s
-e2e-test-olm-a-a92jyymd-pr8hx                      Active   4m29s
+1 pass, 0 skip (1m50s)
+$ kubectl get ws
+NAME                        TYPE        PHASE   URL
+e2e-test-kcp-syncer-s6ktv   universal   Ready   https://<kcp-test-env-domain>/clusters/root:users:rp:pv:rh-sso-xxxx:e2e-test-kcp-syncer-s6ktv
+e2e-test-kcp-syncer-a5spq   universal   Ready   https://<kcp-test-env-domain>/clusters/root:users:rp:pv:rh-sso-xxxx:e2e-test-kcp-syncer-a5spq
 ...
 ```
 #### Print cluster event on Terminal
-When you execute cases, there are some cluster event which is printed to the terminal, like
+When you execute cases, there are some cluster event which is printed to the terminal(**`currently kcp not enable the events info`**), like
 ```console
 Timeline:
 
@@ -102,68 +122,4 @@ So, we add environment variable ENABLE_PRINT_EVENT_STDOUT to enable it.
 
 In default, it does not print the cluster event on the terminal when you execute the case on your terminal.
 
-### Compile the executable binary
-Note that we use the `go module` for package management, the previous `go path` is deprecated.
-```console
-$ git clone git@github.com:openshift/openshift-tests-private.git
-$ cd openshift-tests-private/
-$ make build
-mkdir -p "bin"
-export GO111MODULE="on" && export GOFLAGS="" && go build -o "bin" "./cmd/extended-platform-tests"
-$ ls -hl ./bin/extended-platform-tests 
--rwxrwxr-x. 1 cloud-user cloud-user 165M Jun 24 22:17 ./bin/extended-platform-tests
-```
-
-### Run the automation test case
-The binary finds the test case via searching for the test case title. It searches the test case titles by RE (`Regular Expression`). So, you can filter your test cases by using `grep`. Such as, if I want to run all [OLM test cases](https://github.com/openshift/openshift-tests-private/blob/master/test/extended/operators/olm.go#L21), and all of them contain the `OLM` letter, I can use the `grep OLM` to filter them, as follows: 
-```console
-$ ./bin/extended-platform-tests run all --dry-run | grep "OLM" | ./bin/extended-platform-tests run -f -
-I0624 22:48:36.599578 2404223 test_context.go:419] Tolerating taints "node-role.kubernetes.io/master" when considering if nodes are ready
-"[sig-operators] OLM for an end user handle common object Author:kuiwang-Medium-22259-marketplace operator CR status on a running cluster [Exclusive] [Serial]"
-...
-```
-You can save the above output to a file and run it:
-```console
-$ ./bin/extended-platform-tests run -f <your file path/name>
-```
-If you want to run a test case, such as `g.It("Author:jiazha-Critical-23440-can subscribe to the etcd operator  [Serial]"`, since the `TestCaseID` is unique, you can do:
-```console
-$ ./bin/extended-platform-tests run all --dry-run|grep "23440"|./bin/extended-platform-tests run --junit-dir=./ -f -
-```
-
-### Debugging
-#### Keep generated temporary project
-Sometime, we want to **keep the generated namespace for debugging**. Just add the Env Var: `export DELETE_NAMESPACE=false`. These random namespaces will be kept, like below:
-```console
-...
-Dec 18 09:39:33.448: INFO: Running AfterSuite actions on all nodes
-Dec 18 09:39:33.448: INFO: Waiting up to 7m0s for all (but 100) nodes to be ready
-Dec 18 09:39:33.511: INFO: Found DeleteNamespace=false, skipping namespace deletion!
-Dec 18 09:39:33.511: INFO: Running AfterSuite actions on node 1
-...
-1 pass, 0 skip (2m50s)
-[root@preserve-olm-env openshift-tests-private]# oc get ns
-NAME                                               STATUS   AGE
-default                                            Active   4h46m
-e2e-test-olm-a-a92jyymd-lmgj6                      Active   4m28s
-e2e-test-olm-a-a92jyymd-pr8hx                      Active   4m29s
-...
-```
-#### Print cluster event on Terminal
-When you execute cases, there are some cluster event which is printed to the terminal, like
-```console
-Timeline:
-
-Mar 30 03:57:36.435 I ns/openshift-kube-controller-manager pod/kube-controller-manager-ip-10-0-190-60.ec2.internal created SCC ranges for e2e-test-olm-common-l21c9cfo-g6xwx namespace
-Mar 30 03:57:47.894 W ns/openshift-marketplace pod/marketplace-operator-5cf7b79dd4-xsffg node/ip-10-0-247-215.ec2.internal graceful deletion within 30s
-Mar 30 03:57:48.097 I ns/openshift-marketplace pod/marketplace-operator-5cf7b79dd4-xsffg Stopping container marketplace-operator
-...
-```
-Someone does not want it on the terminal, but someone wants it for debugging.
-
-So, we add environment variable ENABLE_PRINT_EVENT_STDOUT to enable it.
-
-In default, it does not print the cluster event on the terminal when you execute the case on your terminal.
-
-if you want it for debugging, **please set `export ENABLE_PRINT_EVENT_STDOUT=true` before executing the case.**
-if you want it for debugging, **please set `export ENABLE_PRINT_EVENT_STDOUT=true` before executing the case.**
+if you want to enable it for helping debug, **please set `export ENABLE_PRINT_EVENT_STDOUT=true` before executing the case.**
