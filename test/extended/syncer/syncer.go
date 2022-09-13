@@ -17,7 +17,7 @@ var _ = g.Describe("[area/transparent-multi-cluster]", func() {
 		k = exutil.NewCLIWithWorkSpace("kcp-syncer")
 	)
 
-	g.It("Author:pewang-Critical-[Smoke][BYO] Validate create, modifying, deleting a deployment from KCP gets synced to the pcluster", func() {
+	g.It("Author:pewang-Critical-[Smoke][BYO] Validate creating, modifying and deleting a deployment from KCP get synced to the pcluster", func() {
 		pclusterKubeconfig := os.Getenv("PCLUSTER_KUBECONFIG")
 		if pclusterKubeconfig == "" {
 			g.Skip("No pcluster kubeconfig set for the test scenario")
@@ -39,7 +39,7 @@ var _ = g.Describe("[area/transparent-multi-cluster]", func() {
 		mySyncer.WaitUntilReady(k)
 		mySyncer.CheckDisplayAttributes(k)
 
-		g.By("# Create workload using the shared compute should work well")
+		g.By("# Creating workload using the BYO compute should work well")
 		myDeployment := exutil.NewDeployment(exutil.SetDeploymentNameSpace(myWs.Namespaces[0]))
 		defer myDeployment.Clean(k)
 		myDeployment.Create(k)
