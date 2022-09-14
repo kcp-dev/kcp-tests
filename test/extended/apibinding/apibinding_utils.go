@@ -93,6 +93,10 @@ func (apb *APIBinding) CreateAsExpectedResult(k *exutil.CLI, successFlag bool, c
 
 // Delete APIBinding
 func (apb *APIBinding) Delete(k *exutil.CLI) {
-	err := k.WithoutNamespace().WithoutKubeconf().Run("delete").Args("apibinding", apb.Metadata.Name).Execute()
-	o.Expect(err).NotTo(o.HaveOccurred())
+	o.Expect(apb.Clean(k)).NotTo(o.HaveOccurred())
+}
+
+// Clean the APIBinding resource
+func (apb *APIBinding) Clean(k *exutil.CLI) error {
+	return k.WithoutNamespace().WithoutKubeconf().Run("delete").Args("apibinding", apb.Metadata.Name).Execute()
 }

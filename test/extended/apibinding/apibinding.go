@@ -7,7 +7,7 @@ import (
 	exutil "github.com/kcp-dev/kcp-tests/test/extended/util"
 )
 
-var _ = g.Describe("[area-apiexports]", func() {
+var _ = g.Describe("[area/apiexports]", func() {
 	defer g.GinkgoRecover()
 
 	var (

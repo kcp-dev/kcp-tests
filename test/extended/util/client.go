@@ -76,7 +76,7 @@ type CLI struct {
 	verb                   string
 	configPath             string
 	currentWs              WorkSpace
-	guestConfigPath        string
+	pClusterConfigPath     string
 	adminConfigPath        string
 	orgServerURL           string // User orgnaization workspace server url
 	homeServerURL          string // User homes workspace server url
@@ -93,7 +93,7 @@ type CLI struct {
 	withoutNamespace       bool
 	withoutKubeconf        bool
 	withoutWorkSpaceServer bool
-	asGuestKubeconf        bool
+	asPClusterKubeconf     bool
 	kubeFramework          *e2e.Framework
 
 	resourcesToDelete []resourceRef
@@ -107,9 +107,11 @@ type resourceRef struct {
 
 // WorkSpace defination
 type WorkSpace struct {
-	Name            string // WorkSpace Name            E.g. e2e-test-kcp-workspace-xxxxx
-	ServerURL       string // WorkSpace ServerURL       E.g. https://{{kcp-service-domain}}/clusters/root:orgID:e2e-test-kcp-workspace-xxxxx
-	ParentServerURL string // WorkSpace ParentServerURL E.g. https://{{kcp-service-domain}}/clusters/root:orgID
+	Name            string   // WorkSpace Name                                                E.g. e2e-test-kcp-workspace-xxxxx
+	CurrentNS       string   // The latest workSpace's namespace created by SetupNameSpace()  E.g. e2e-ns-kcp-workspace-xxxxx
+	Namespaces      []string // WorkSpace's Namespaces created by SetupNameSpace()            E.g. e2e-ns-kcp-workspace-xxxxx
+	ServerURL       string   // WorkSpace ServerURL                                           E.g. https://{{kcp-service-domain}}/clusters/root:orgID:e2e-test-kcp-workspace-xxxxx
+	ParentServerURL string   // WorkSpace ParentServerURL                                     E.g. https://{{kcp-service-domain}}/clusters/root:orgID
 }
 
 var (
@@ -271,9 +273,9 @@ func (c *CLI) NotShowInfo() *CLI {
 	return c
 }
 
-// SetGuestKubeconf instructs the guest cluster kubeconf file is set
-func (c *CLI) SetGuestKubeconf(guestKubeconf string) *CLI {
-	c.guestConfigPath = guestKubeconf
+// SetPClusterKubeconf instructs the pcluster kubeconf file is set
+func (c *CLI) SetPClusterKubeconf(pClusterConfigPath string) *CLI {
+	c.pClusterConfigPath = pClusterConfigPath
 	return c
 }
 
@@ -295,12 +297,12 @@ func (c CLI) WithoutKubeconf() *CLI {
 	return &c
 }
 
-// AsGuestKubeconf instructs the command should take kubeconfig of guest cluster
-func (c CLI) AsGuestKubeconf() *CLI {
-	c.asGuestKubeconf = true
-	c.withoutNamespace = true // if you want to use guest cluster config to opeate guest cluster, you have to set
-	// withoutNamespace as true (like calling WithoutNamespace), so you can not get ns of
-	// management cluster, and you have to set ns of guest cluster in Args.
+// AsPClusterKubeconf instructs the command should take kubeconfig of the pcluster
+func (c CLI) AsPClusterKubeconf() *CLI {
+	c.asPClusterKubeconf = true
+	c.withoutNamespace = true // if you want to use pcluster config to opeate pcluster, you have to set
+	// withoutNamespace as true (like calling WithoutNamespace), so you can not get ns by
+	// kcp service as the ns is not synced, and you have to set ns of pcluster in Args.
 	return &c
 }
 
@@ -429,9 +431,27 @@ func (c *CLI) TeardownProject() {
 	}
 }
 
+// SetupNamespace creates a new namespace
+func (c *CLI) SetupNamespace() {
+	newNamespace := names.SimpleNameGenerator.GenerateName(fmt.Sprintf("e2e-ns-%s-", c.kubeFramework.BaseName))
+	e2e.Logf("Creating namespace %q", newNamespace)
+	output, errinfo := c.WithoutNamespace().WithoutKubeconf().Run("create").Args("namespace", newNamespace).Output()
+	o.Expect(errinfo).NotTo(o.HaveOccurred())
+	o.Expect(output).Should(o.ContainSubstring("created"))
+	c.currentWs.CurrentNS = newNamespace
+	c.currentWs.Namespaces = append(c.currentWs.Namespaces, newNamespace)
+	c.workSpacesToDelete[len(c.workSpacesToDelete)-1].Namespaces = append(c.workSpacesToDelete[len(c.workSpacesToDelete)-1].Namespaces, newNamespace)
+}
+
 // SetupWorkSpace creates a new WorkSpace under the org workspace
 func (c *CLI) SetupWorkSpace() {
 	c.SetupWorkSpaceWithSpecificPath(c.homeServerURL)
+}
+
+// SetupWorkSpaceWithNamespace creates a new WorkSpace under the user's home workspace and creates a namespace under the WorkSpace
+func (c *CLI) SetupWorkSpaceWithNamespace() {
+	c.SetupWorkSpaceWithSpecificPath(c.homeServerURL)
+	c.SetupNamespace()
 }
 
 // SetupWorkSpaceWithSpecificPath creates a new WorkSpace with specific paths
@@ -471,6 +491,14 @@ func (c *CLI) TeardownWorkSpace() {
 		})
 		e2e.Debugf("***%v***", c.workSpacesToDelete)
 		for _, ws := range c.workSpacesToDelete {
+			// TODO: For users' gereral usage should delete the ws directly without clean up its ns
+			// We could add the clean up ns back if needed later
+			// if len(ws.Namespaces) > 0 {
+			// 	for _, ns := range ws.Namespaces {
+			// 		err := c.WithoutNamespace().WithoutKubeconf().WithoutWorkSpaceServer().Run("delete").Args("--server="+ws.ServerURL, "namespace", ns).Execute()
+			// 		e2e.Logf("Deleted workspace/%s's namespace/%s, err: %v", ws.Name, ns, err)
+			// 	}
+			// }
 			err := c.WithoutNamespace().WithoutKubeconf().WithoutWorkSpaceServer().Run("delete").Args("--server="+ws.ParentServerURL, "workspace", ws.Name).Execute()
 			e2e.Logf("Deleted %v, err: %v", ws.Name, err)
 		}
@@ -686,28 +714,28 @@ func (c *CLI) setOutput(out io.Writer) *CLI {
 func (c *CLI) Run(commands ...string) *CLI {
 	in, out, errout := &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}
 	nc := &CLI{
-		execPath:        c.execPath,
-		verb:            commands[0],
-		kubeFramework:   c.KubeFramework(),
-		adminConfigPath: c.adminConfigPath,
-		configPath:      c.configPath,
-		guestConfigPath: c.guestConfigPath,
-		username:        c.username,
-		globalArgs:      commands,
+		execPath:           c.execPath,
+		verb:               commands[0],
+		kubeFramework:      c.KubeFramework(),
+		adminConfigPath:    c.adminConfigPath,
+		configPath:         c.configPath,
+		pClusterConfigPath: c.pClusterConfigPath,
+		username:           c.username,
+		globalArgs:         commands,
 	}
 	if !c.withoutKubeconf {
-		if c.asGuestKubeconf {
-			if c.guestConfigPath != "" {
-				nc.globalArgs = append([]string{fmt.Sprintf("--kubeconfig=%s", c.guestConfigPath)}, nc.globalArgs...)
+		if c.asPClusterKubeconf {
+			if c.pClusterConfigPath != "" {
+				nc.globalArgs = append([]string{fmt.Sprintf("--kubeconfig=%s", c.pClusterConfigPath)}, nc.globalArgs...)
 			} else {
-				FatalErr("want to use guest cluster kubeconfig, but it is not set, so please use oc.SetGuestKubeconf to set it firstly")
+				FatalErr("Seems you want to use pcluster kubeconfig, but it doesn't set, so please use oc.SetPClusterKubeconf to set it firstly")
 			}
 		} else {
 			nc.globalArgs = append([]string{fmt.Sprintf("--kubeconfig=%s", c.configPath)}, nc.globalArgs...)
 		}
 	}
-	if c.asGuestKubeconf && !c.withoutNamespace {
-		FatalErr("you are doing something in ns of guest cluster, please use WithoutNamespace and set ns in Args, for example, oc.AsGuestKubeconf().WithoutNamespace().Run(\"get\").Args(\"pods\", \"-n\", \"guestclusterns\").Output()")
+	if c.asPClusterKubeconf && !c.withoutNamespace {
+		FatalErr("you are doing something in ns of pcluster, please use WithoutNamespace and set ns in Args, for example, oc.AsPClusterKubeconf().WithoutNamespace().Run(\"get\").Args(\"pods\", \"-n\", \"pclusterns\").Output()")
 	}
 	if !c.withoutNamespace {
 		nc.globalArgs = append([]string{fmt.Sprintf("--namespace=%s", c.Namespace())}, nc.globalArgs...)

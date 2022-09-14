@@ -11,7 +11,7 @@ import (
 	exutil "github.com/kcp-dev/kcp-tests/test/extended/util"
 )
 
-var _ = g.Describe("[sig-workspace]", func() {
+var _ = g.Describe("[area/workspaces]", func() {
 	defer g.GinkgoRecover()
 
 	var (
