@@ -491,12 +491,14 @@ func (c *CLI) TeardownWorkSpace() {
 		})
 		e2e.Debugf("***%v***", c.workSpacesToDelete)
 		for _, ws := range c.workSpacesToDelete {
-			if len(ws.Namespaces) > 0 {
-				for _, ns := range ws.Namespaces {
-					err := c.WithoutNamespace().WithoutKubeconf().WithoutWorkSpaceServer().Run("delete").Args("--server="+ws.ServerURL, "namespace", ns).Execute()
-					e2e.Logf("Deleted workspace/%s's namespace/%s, err: %v", ws.Name, ns, err)
-				}
-			}
+			// TODO: For users' gereral usage should delete the ws directly without clean up its ns
+			// We could add the clean up ns back if needed later
+			// if len(ws.Namespaces) > 0 {
+			// 	for _, ns := range ws.Namespaces {
+			// 		err := c.WithoutNamespace().WithoutKubeconf().WithoutWorkSpaceServer().Run("delete").Args("--server="+ws.ServerURL, "namespace", ns).Execute()
+			// 		e2e.Logf("Deleted workspace/%s's namespace/%s, err: %v", ws.Name, ns, err)
+			// 	}
+			// }
 			err := c.WithoutNamespace().WithoutKubeconf().WithoutWorkSpaceServer().Run("delete").Args("--server="+ws.ParentServerURL, "workspace", ws.Name).Execute()
 			e2e.Logf("Deleted %v, err: %v", ws.Name, err)
 		}
