@@ -94,17 +94,14 @@ func (s *SyncTarget) CheckReady(k *exutil.CLI) (bool, error) {
 func (s *SyncTarget) WaitUntilReady(k *exutil.CLI) {
 	err := wait.Poll(5*time.Second, 180*time.Second, func() (bool, error) {
 		SyncTargetReady, err := s.CheckReady(k)
-		if err != nil {
-			return SyncTargetReady, err
-		}
-		return SyncTargetReady, nil
+		return SyncTargetReady, err
 	})
-	exutil.AssertWaitPollNoErr(err, fmt.Sprintf("Waiting for SyncTarget/%s becomes ready timeout", s.Name))
+	exutil.AssertWaitPollNoErr(err, fmt.Sprintf("Waiting for SyncTarget/%s to become ready times out", s.Name))
 }
 
-// CheckDisplayAttributes checks the SyncTarget info showing the expected columns
-func (s *SyncTarget) CheckDisplayAttributes(k *exutil.CLI) {
-	// Check the display attributes
+// CheckDisplayColumns checks the SyncTarget info showing the expected columns
+func (s *SyncTarget) CheckDisplayColumns(k *exutil.CLI) {
+	// Check the display columns
 	syncTargetInfo, err := k.WithoutNamespace().WithoutKubeconf().WithoutWorkSpaceServer().Run("get").Args("--server="+s.WorkSpaceServer, "synctarget", s.Name).Output()
 	o.Expect(err).NotTo(o.HaveOccurred())
 	o.Expect(syncTargetInfo).Should(o.And(
@@ -112,7 +109,7 @@ func (s *SyncTarget) CheckDisplayAttributes(k *exutil.CLI) {
 		o.ContainSubstring("AGE"),
 	))
 	// Check the display attributes with "-o wide" option
-	syncTargetInfo, err = k.WithoutNamespace().WithoutKubeconf().Run("get").Args("synctarget", s.Name, "-o", "wide").Output()
+	syncTargetInfo, err = k.WithoutNamespace().WithoutKubeconf().WithoutWorkSpaceServer().Run("get").Args("--server="+s.WorkSpaceServer, "synctarget", s.Name, "-o", "wide").Output()
 	o.Expect(err).NotTo(o.HaveOccurred())
 	o.Expect(syncTargetInfo).Should(o.And(
 		o.ContainSubstring("NAME"),
@@ -123,12 +120,13 @@ func (s *SyncTarget) CheckDisplayAttributes(k *exutil.CLI) {
 		o.ContainSubstring("AGE"),
 	))
 	// Check all the display attributes not be empty
-	// Known issue: https://github.com/kcp-dev/kcp/issues/943
-	// TODO: Will add the checkpoint back when the issue solved
-	// displayLines := strings.Split(string(syncTargetInfo), "\n")
-	// schemaAttributes := strings.Fields(strings.TrimSpace(displayLines[0]))
-	// attributesValues := strings.Fields(strings.TrimSpace(displayLines[0]))
-	// o.Expect(len(schemaAttributes)).Should(o.Equal(len(attributesValues)))
+	displayLines := strings.Split(string(syncTargetInfo), "\n")
+	schemaAttributes := strings.Fields(strings.TrimSpace(displayLines[0]))
+	attributesValues := strings.Fields(strings.TrimSpace(displayLines[1]))
+	// "SYNCED API RESOURCES" will be recognized to 3 different columns
+	// while its value only displays in one column
+	// "len(schemaAttributes)-2" should be equal to "len(attributesValues)"
+	o.Expect(len(schemaAttributes) - 2).Should(o.Equal(len(attributesValues)))
 }
 
 // Delete the SyncTarget

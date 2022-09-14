@@ -150,8 +150,8 @@ func (dep *Deployment) ScaleReplicas(k *CLI, replicasNum string) {
 	dep.Replicas = replicasNum
 }
 
-// CheckDisplayAttributes checks the deployment info showing the expected columns
-func (dep *Deployment) CheckDisplayAttributes(k *CLI) {
+// CheckDisplayColumns checks the deployment info showing the expected columns
+func (dep *Deployment) CheckDisplayColumns(k *CLI) {
 	deploymentInfo, err := k.WithoutKubeconf().WithoutNamespace().Run("get").Args("-n", dep.Namespace, "deployment", dep.Name).Output()
 	o.Expect(err).NotTo(o.HaveOccurred())
 	o.Expect(deploymentInfo).Should(o.And(
@@ -163,6 +163,6 @@ func (dep *Deployment) CheckDisplayAttributes(k *CLI) {
 	))
 	displayLines := strings.Split(string(deploymentInfo), "\n")
 	schemaAttributes := strings.Fields(strings.TrimSpace(displayLines[0]))
-	attributesValues := strings.Fields(strings.TrimSpace(displayLines[0]))
+	attributesValues := strings.Fields(strings.TrimSpace(displayLines[1]))
 	o.Expect(len(schemaAttributes)).Should(o.Equal(len(attributesValues)))
 }
