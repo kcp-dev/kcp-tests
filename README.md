@@ -7,7 +7,7 @@ This repository holds the kcp tests that tests against the publicly available  i
         * Ensure you install Golang from a binary release [found here](https://golang.org/dl/), not with a package manager such as `dnf`
 * golint installed. See [Installing golint](https://github.com/golang/lint#installation)
 * Install [kubelogin](https://github.com/int128/kubelogin.git) and [KCP kubectl plugin](https://github.com/kcp-dev/kcp.git)
-      * Ensure your installed KCP kubectl plugin version is the same with the kcp service version
+      * Ensure your installed KCP kubectl plugin version is the same with the kcp service version, you could build the plugin by your self or just download the suitable version binary from [kcp release assets](https://github.com/kcp-dev/kcp/releases)
   ```
   $ git clone https://github.com/kcp-dev/kcp.git
   # E.g. Install the release-0.5 version KCP kubectl plugin
@@ -22,8 +22,25 @@ This repository holds the kcp tests that tests against the publicly available  i
   kubectl oidc-login get-token --oidc-issuer-url=https://sso.xxxx.com/auth
    --oidc-client-id=cloud-services --oidc-redirect-url-hostname=127.0.0.1
   ```
-* Have the environment variable `PCLUSTER_KUBECONFIG` set pointing to your BYO cluster(Bring your own cluster), it's optional, you should set it if your test cases need to operate BYO cluster. The test cases which need to operate BYO cluster will be skipped by no environment variable `PCLUSTER_KUBECONFIG` found without setting it.
-
+* If you would like to test BYO cases please make sure to set the `PCLUSTER_KUBECONFIG` environment variable else all the tests related to BYO will be skipped. 
+## Contribution 
+Below are the general steps for submitting a PR to master branch. First, you should **Fork** this repo to your own Github account.
+```console
+$ git remote add <Your Name> git@github.com:<Your Github Account>/kcp-tests.git
+$ git pull origin main
+$ git checkout -b <Branch Name>
+$ git add xxx
+$ git diff main --name-only |grep ".go$"| grep -v "bindata.go$" | xargs -n1 golint
+  Please fix all golint error
+$ git diff main --name-only |grep ".go$"| grep -v "bindata.go$" | xargs gofmt -s -l
+  Please fix all gofmt error, running 'gofmt -s -d [file_path]' or autocorrect with 'gofmt -s -w [file_path]'
+$ git add xxx
+$ make build
+$ ./bin/kcp-tests run all --dry-run |grep <Test Case Name>|./bin/kcp-tests run -f -
+$ git commit -m "xxx"
+$ git push <Your Name> <Branch Name>:<Branch Name>
+```
+And then there will be a prompt in your Github repo console to open a PR, click it to do so.
 ### Include new test folder
 If you create a new folder for your test case, **add the path** to the [include.go](https://github.com/openshift/openshift-tests-private/blob/master/test/extended/include.go)
 
@@ -47,25 +64,6 @@ export GO111MODULE="on" && export GOFLAGS="" && go build  -ldflags="-s -w" -mod=
 $ ls -hl ./bin/kcp-tests 
 -rwxrwxr-x. 1 cloud-user cloud-user 106M Sep 13 14:41 ./bin/kcp-tests
 ```
-
-## Contribution 
-Below are the general steps for submitting a PR to master branch. First, you should **Fork** this repo to your own Github account.
-```console
-$ git remote add <Your Name> git@github.com:<Your Github Account>/kcp-tests.git
-$ git pull origin main
-$ git checkout -b <Branch Name>
-$ git add xxx
-$ git diff main --name-only |grep ".go$"| grep -v "bindata.go$" | xargs -n1 golint
-  Please fix all golint error
-$ git diff main --name-only |grep ".go$"| grep -v "bindata.go$" | xargs gofmt -s -l
-  Please fix all gofmt error, running 'gofmt -s -d [file_path]' or autocorrect with 'gofmt -s -w [file_path]'
-$ git add xxx
-$ make build
-$ ./bin/kcp-tests run all --dry-run |grep <Test Case Name>|./bin/kcp-tests run -f -
-$ git commit -m "xxx"
-$ git push <Your Name> <Branch Name>:<Branch Name>
-```
-And then there will be a prompt in your Github repo console to open a PR, click it to do so.
 
 ### Run the automation test case
 The binary finds the test case via searching for the test case title. It searches the test case titles by RE (`Regular Expression`). So, you can filter your test cases by using `grep`. 
@@ -94,7 +92,8 @@ $ ./bin/kcp-tests run all --dry-run|grep "Multi levels workspaces lifecycle shou
 
 ### Debugging
 #### Keep generated temporary workspaces
-Sometime, we want to **keep the generated workspaces for debugging**. Just add the Env Var: `export DELETE_WORKSPACE=false`. These random workspaces will be kept, like below:
+Sometime, we want to **keep the generated workspaces for debugging**, we could just set **`export DELETE_WORKSPACE=false`**, then these temporary workspaces will be kept. 
+
 ```console
 ...
 Dec 18 09:39:33.448: INFO: Running AfterSuite actions on all nodes
@@ -107,7 +106,7 @@ e2e-test-kcp-syncer-a5spq   universal   Ready   https://<kcp-test-env-domain>/cl
 ...
 ```
 #### Print cluster event on Terminal
-When you execute cases, there are some cluster event which is printed to the terminal(**`currently kcp not enable the events info`**), like
+When you execute cases, there are some events which is printed to the terminal (**`currently we cannot retreive events from kcp`)**, like
 ```console
 Timeline:
 
@@ -120,6 +119,6 @@ Someone does not want it on the terminal, but someone wants it for debugging.
 
 So, we add environment variable ENABLE_PRINT_EVENT_STDOUT to enable it.
 
-In default, it does not print the cluster event on the terminal when you execute the case on your terminal.
+It does not print the kcp service events on the terminal by default when you execute the case on your terminal.
 
-if you want to enable it for helping debug, **please set `export ENABLE_PRINT_EVENT_STDOUT=true` before executing the case.**
+If you would like to enable it to help debug, **please set `export ENABLE_PRINT_EVENT_STDOUT=true` before executing the case.**
