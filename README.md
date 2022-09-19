@@ -3,11 +3,11 @@ This repository holds the kcp tests that tests against the publicly available  i
 
 ## Prerequisites
 * Git installed. See [Installing Git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git)
-* Golang installed. See [Installing Golang](https://golang.org/doc/install),the newer the better.
-        * Ensure you install Golang from a binary release [found here](https://golang.org/dl/), not with a package manager such as `dnf`
+* Golang installed. See [Installing Golang](https://golang.org/doc/install), the newer the better ( Ensure you install Golang from a binary release [found here](https://golang.org/dl/), not with a package manager such as `dnf` ）
 * golint installed. See [Installing golint](https://github.com/golang/lint#installation)
-* Install [kubelogin](https://github.com/int128/kubelogin.git) and [KCP kubectl plugin](https://github.com/kcp-dev/kcp.git)
-      * Ensure your installed KCP kubectl plugin version is the same with the kcp service version, you could build the plugin by your self or just download the suitable version binary from [kcp release assets](https://github.com/kcp-dev/kcp/releases)
+* Install [kubelogin](https://github.com/int128/kubelogin.git) and [KCP kubectl plugin](https://github.com/kcp-dev/kcp.git) ( Ensure your installed KCP kubectl plugin version is the same with the kcp service version )
+  - If you would like to download the suitable version packages directly go to [kcp release assets](https://github.com/kcp-dev/kcp/releases), download the zip file suitable for your OS, extract and copy the binaries to a place which is in your PATH and once copied run `kubectl-kcp --version` to verify if server matches with client 
+  - If you would like to build the plugin by your self you could follow the steps like below:
   ```
   $ git clone https://github.com/kcp-dev/kcp.git
   # E.g. Install the release-0.5 version KCP kubectl plugin
@@ -67,7 +67,7 @@ $ ls -hl ./bin/kcp-tests
 
 ### Run the automation test case
 The binary finds the test case via searching for the test case title. It searches the test case titles by RE (`Regular Expression`). So, you can filter your test cases by using `grep`. 
-##### Run an area automation test cases
+##### Run automation test cases related an area
 If I want to run all [workspaces test cases](https://github.com/kcp-dev/kcp-tests/blob/main/test/extended/workspacetype/workspace.go#L14), and all of them contain the `area/workspaces` key word, I can use the `grep "area/workspaces"` to filter them, as follows: 
 ```console
 $ ./bin/kcp-tests run all --dry-run | grep "area/workspaces" | ./bin/kcp-tests run -f -
