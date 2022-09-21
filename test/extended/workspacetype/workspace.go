@@ -33,7 +33,7 @@ var _ = g.Describe("[area/workspaces]", func() {
 		}
 
 		g.By(`# Check list workspaces command returns all columns`)
-		output, err := k.Run("get").Args("--server="+parentWorkSpace.ParentServerURL, "workspace").Output()
+		output, err := k.WithoutWorkSpaceServer().Run("get").Args("--server="+parentWorkSpace.ParentServerURL, "workspace").Output()
 		o.Expect(err).NotTo(o.HaveOccurred())
 		o.Expect(output).Should(o.And(
 			o.ContainSubstring("NAME"),
@@ -61,21 +61,21 @@ var _ = g.Describe("[area/workspaces]", func() {
 
 		g.By("# Delete child workspaces")
 		for _, childWorkSpace := range childWorkSpaces {
-			output, err := k.Run("delete").Args("--server="+parentWorkSpace.ServerURL, "workspace", childWorkSpace.Name).Output()
+			output, err := k.WithoutWorkSpaceServer().Run("delete").Args("--server="+parentWorkSpace.ServerURL, "workspace", childWorkSpace.Name).Output()
 			o.Expect(err).NotTo(o.HaveOccurred())
 			o.Expect(output).Should(o.ContainSubstring("deleted"))
 			o.Eventually(func() string {
-				workSpaces, _ := k.Run("get").Args("--server="+parentWorkSpace.ServerURL, "workspace").Output()
+				workSpaces, _ := k.WithoutWorkSpaceServer().Run("get").Args("--server="+parentWorkSpace.ServerURL, "workspace").Output()
 				return workSpaces
 			}, 60*time.Second, 5*time.Second).ShouldNot(o.ContainSubstring(childWorkSpace.Name))
 		}
 
 		g.By("# Delete parent workspace")
-		output, err = k.Run("delete").Args("--server="+parentWorkSpace.ParentServerURL, "workspace", parentWorkSpace.Name).Output()
+		output, err = k.WithoutWorkSpaceServer().Run("delete").Args("--server="+parentWorkSpace.ParentServerURL, "workspace", parentWorkSpace.Name).Output()
 		o.Expect(err).NotTo(o.HaveOccurred())
 		o.Expect(output).Should(o.ContainSubstring("deleted"))
 		o.Eventually(func() string {
-			workSpaces, _ := k.Run("get").Args("--server="+parentWorkSpace.ParentServerURL, "workspace").Output()
+			workSpaces, _ := k.WithoutWorkSpaceServer().Run("get").Args("--server="+parentWorkSpace.ParentServerURL, "workspace").Output()
 			return workSpaces
 		}, 60*time.Second, 5*time.Second).ShouldNot(o.ContainSubstring(parentWorkSpace.Name))
 	})
@@ -91,7 +91,7 @@ var _ = g.Describe("[area/workspaces]", func() {
 		o.Expect(err).NotTo(o.HaveOccurred())
 
 		g.By("# Create context under this workspace")
-		err = k.WithoutNamespace().WithoutKubeconf().WithoutWorkSpaceServer().Run("kcp").Args("workspace", "create-context", workSpace.Name, "--server="+workSpace.ParentServerURL).Execute()
+		err = k.WithoutWorkSpaceServer().Run("kcp").Args("workspace", "create-context", workSpace.Name, "--server="+workSpace.ParentServerURL).Execute()
 		o.Expect(err).NotTo(o.HaveOccurred())
 
 		g.By("# Switch to the newly created context")
@@ -111,7 +111,7 @@ var _ = g.Describe("[area/workspaces]", func() {
 		o.Expect(currentContext).To(o.Equal(workSpace.Name))
 
 		g.By("# Recreate context, expect to show conflict")
-		output, err := k.WithoutNamespace().WithoutKubeconf().WithoutWorkSpaceServer().Run("kcp").Args("workspace", "create-context", workSpace.Name, "--server="+workSpace.ParentServerURL).Output()
+		output, err := k.WithoutWorkSpaceServer().Run("kcp").Args("workspace", "create-context", workSpace.Name, "--server="+workSpace.ParentServerURL).Output()
 		o.Expect(err).To(o.HaveOccurred())
 		o.Expect(output).To(o.ContainSubstring("already exists in kubeconfig"))
 	})

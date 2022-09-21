@@ -73,7 +73,7 @@ import (
 // clients.
 type CLI struct {
 	execPath               string
-	verb                   string
+	command                string
 	configPath             string
 	currentWs              WorkSpace
 	pClusterConfigPath     string
@@ -81,9 +81,8 @@ type CLI struct {
 	orgServerURL           string // User orgnaization workspace server url
 	homeServerURL          string // User homes workspace server url
 	username               string
-	globalArgs             []string
+	flags                  []string
 	commandArgs            []string
-	finalArgs              []string
 	workSpacesToDelete     []WorkSpace
 	stdin                  *bytes.Buffer
 	stdout                 io.Writer
@@ -95,8 +94,7 @@ type CLI struct {
 	withoutWorkSpaceServer bool
 	asPClusterKubeconf     bool
 	kubeFramework          *e2e.Framework
-
-	resourcesToDelete []resourceRef
+	resourcesToDelete      []resourceRef
 }
 
 type resourceRef struct {
@@ -471,7 +469,7 @@ func (c *CLI) SetupWorkSpaceWithSpecificPath(serverURL string) {
 
 // ListWorkSpacesWithSpecificPath returns a list of WorkSpaces under a specific workspace
 func (c *CLI) ListWorkSpacesWithSpecificPath(serverURL string) []string {
-	workSpacesRaw, err := c.WithoutNamespace().WithoutKubeconf().Run("get").Args("workspaces", "-o", "jsonpath={.items[*]['metadata.name']}", "--server="+serverURL).Output()
+	workSpacesRaw, err := c.WithoutWorkSpaceServer().Run("get").Args("workspaces", "-o", "jsonpath={.items[*]['metadata.name']}", "--server="+serverURL).Output()
 	o.Expect(err).NotTo(o.HaveOccurred())
 	if workSpacesRaw == "" {
 		return []string{}
@@ -499,7 +497,7 @@ func (c *CLI) TeardownWorkSpace() {
 			// 		e2e.Logf("Deleted workspace/%s's namespace/%s, err: %v", ws.Name, ns, err)
 			// 	}
 			// }
-			err := c.WithoutNamespace().WithoutKubeconf().WithoutWorkSpaceServer().Run("delete").Args("--server="+ws.ParentServerURL, "workspace", ws.Name).Execute()
+			err := c.WithoutKubeconf().WithoutWorkSpaceServer().Run("delete").Args("--server="+ws.ParentServerURL, "workspace", ws.Name).Execute()
 			e2e.Logf("Deleted %v, err: %v", ws.Name, err)
 		}
 	}
@@ -711,54 +709,53 @@ func (c *CLI) setOutput(out io.Writer) *CLI {
 // Run executes given OpenShift CLI command verb (iow. "oc <verb>").
 // This function also override the default 'stdout' to redirect all output
 // to a buffer and prepare the global flags such as namespace and config path.
-func (c *CLI) Run(commands ...string) *CLI {
+func (c *CLI) Run(command string, flags ...string) *CLI {
 	in, out, errout := &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}
 	nc := &CLI{
 		execPath:           c.execPath,
-		verb:               commands[0],
+		command:            command,
 		kubeFramework:      c.KubeFramework(),
 		adminConfigPath:    c.adminConfigPath,
 		configPath:         c.configPath,
 		pClusterConfigPath: c.pClusterConfigPath,
 		username:           c.username,
-		globalArgs:         commands,
+		flags:              flags,
 	}
 	if !c.withoutKubeconf {
 		if c.asPClusterKubeconf {
 			if c.pClusterConfigPath != "" {
-				nc.globalArgs = append([]string{fmt.Sprintf("--kubeconfig=%s", c.pClusterConfigPath)}, nc.globalArgs...)
+				nc.flags = append(nc.flags, fmt.Sprintf("--kubeconfig=%s", c.pClusterConfigPath))
 			} else {
 				FatalErr("Seems you want to use pcluster kubeconfig, but it doesn't set, so please use oc.SetPClusterKubeconf to set it firstly")
 			}
-		} else {
-			nc.globalArgs = append([]string{fmt.Sprintf("--kubeconfig=%s", c.configPath)}, nc.globalArgs...)
+		} else if c.configPath != "" {
+			nc.flags = append(nc.flags, fmt.Sprintf("--kubeconfig=%s", c.configPath))
 		}
 	}
 	if c.asPClusterKubeconf && !c.withoutNamespace {
 		FatalErr("you are doing something in ns of pcluster, please use WithoutNamespace and set ns in Args, for example, oc.AsPClusterKubeconf().WithoutNamespace().Run(\"get\").Args(\"pods\", \"-n\", \"pclusterns\").Output()")
 	}
-	if !c.withoutNamespace {
-		nc.globalArgs = append([]string{fmt.Sprintf("--namespace=%s", c.Namespace())}, nc.globalArgs...)
+	if !c.withoutNamespace && c.Namespace() != "" {
+		nc.flags = append(nc.flags, fmt.Sprintf("--namespace=%s", c.Namespace()))
 	}
-	// TODO: Temp solution  for parallelly ececute our test cases
+	// TODO: Temp solution for parallelly ececute our test cases
 	// When https://github.com/kcp-dev/kcp/issues/1689 finished
 	// We could make it simply and just use the --kubeconfig instead of --server.
 	if !c.withoutWorkSpaceServer {
-		nc.globalArgs = append(nc.globalArgs, "--server="+c.currentWs.ServerURL)
+		nc.flags = append(nc.flags, "--server="+c.currentWs.ServerURL)
 	}
 	nc.stdin, nc.stdout, nc.stderr = in, out, errout
 	return nc.setOutput(c.stdout)
 }
 
-// Template sets a Go template for the OpenShift CLI command.
-// This is equivalent of running "oc get foo -o template --template='{{ .spec }}'"
+// Template sets a Go template for the Kubectl CLI command.
+// This is equivalent of running "kubectl get foo -o template --template='{{ .spec }}'"
 func (c *CLI) Template(t string) *CLI {
-	if c.verb != "get" {
+	if c.command != "get" {
 		FatalErr("Cannot use Template() for non-get verbs.")
 	}
 	templateArgs := []string{"--output=template", fmt.Sprintf("--template=%s", t)}
-	commandArgs := append(c.commandArgs, templateArgs...)
-	c.finalArgs = append(c.globalArgs, commandArgs...)
+	c.flags = append(c.flags, templateArgs...)
 	return c
 }
 
@@ -770,13 +767,13 @@ func (c *CLI) InputString(input string) *CLI {
 
 // Args sets the additional arguments for the OpenShift CLI command
 func (c *CLI) Args(args ...string) *CLI {
-	c.commandArgs = args
-	c.finalArgs = append(c.globalArgs, c.commandArgs...)
+	c.commandArgs = append(c.commandArgs, args...)
 	return c
 }
 
 func (c *CLI) printCmd() string {
-	return strings.Join(c.finalArgs, " ")
+	finalArgs := c.assembleArgs()
+	return strings.Join(finalArgs, " ")
 }
 
 // ExitError struct
@@ -797,10 +794,11 @@ func (c *CLI) Output() (string, error) {
 	if c.verbose {
 		fmt.Printf("DEBUG: oc %s\n", c.printCmd())
 	}
-	cmd := exec.Command(c.execPath, c.finalArgs...)
+	finalArgs := c.assembleArgs()
+	cmd := exec.Command(c.execPath, finalArgs...)
 	cmd.Stdin = c.stdin
 	if c.showInfo || IsDebug() {
-		e2e.Logf("Running '%s %s'", c.execPath, strings.Join(c.finalArgs, " "))
+		e2e.Logf("Running '%s %s'", c.execPath, strings.Join(finalArgs, " "))
 	}
 	out, err := cmd.CombinedOutput()
 	trimmed := strings.TrimSpace(string(out))
@@ -811,7 +809,7 @@ func (c *CLI) Output() (string, error) {
 		return trimmed, nil
 	case *exec.ExitError:
 		e2e.Logf("Error running %v:\n%s", cmd, trimmed)
-		return trimmed, &ExitError{ExitError: err.(*exec.ExitError), Cmd: c.execPath + " " + strings.Join(c.finalArgs, " "), StdErr: trimmed}
+		return trimmed, &ExitError{ExitError: err.(*exec.ExitError), Cmd: c.execPath + " " + strings.Join(finalArgs, " "), StdErr: trimmed}
 	default:
 		FatalErr(fmt.Errorf("unable to execute %q: %v", c.execPath, err))
 		// unreachable code
@@ -824,9 +822,10 @@ func (c *CLI) Outputs() (string, string, error) {
 	if c.verbose {
 		fmt.Printf("DEBUG: oc %s\n", c.printCmd())
 	}
-	cmd := exec.Command(c.execPath, c.finalArgs...)
+	finalArgs := c.assembleArgs()
+	cmd := exec.Command(c.execPath, finalArgs...)
 	cmd.Stdin = c.stdin
-	e2e.Logf("Running '%s %s'", c.execPath, strings.Join(c.finalArgs, " "))
+	e2e.Logf("Running '%s %s'", c.execPath, strings.Join(finalArgs, " "))
 	//out, err := cmd.CombinedOutput()
 	var stdErrBuff, stdOutBuff bytes.Buffer
 	cmd.Stdout = &stdOutBuff
@@ -860,13 +859,14 @@ func (c *CLI) Background() (*exec.Cmd, *bytes.Buffer, *bytes.Buffer, error) {
 	if c.verbose {
 		fmt.Printf("DEBUG: oc %s\n", c.printCmd())
 	}
-	cmd := exec.Command(c.execPath, c.finalArgs...)
+	finalArgs := c.assembleArgs()
+	cmd := exec.Command(c.execPath, finalArgs...)
 	cmd.Stdin = c.stdin
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = bufio.NewWriter(&stdout)
 	cmd.Stderr = bufio.NewWriter(&stderr)
 
-	e2e.Logf("Running '%s %s'", c.execPath, strings.Join(c.finalArgs, " "))
+	e2e.Logf("Running '%s %s'", c.execPath, strings.Join(finalArgs, " "))
 
 	err := cmd.Start()
 	return cmd, &stdout, &stderr, err
@@ -880,14 +880,15 @@ func (c *CLI) BackgroundRC() (*exec.Cmd, io.ReadCloser, error) {
 	if c.verbose {
 		fmt.Printf("DEBUG: oc %s\n", c.printCmd())
 	}
-	cmd := exec.Command(c.execPath, c.finalArgs...)
+	finalArgs := c.assembleArgs()
+	cmd := exec.Command(c.execPath, finalArgs...)
 	cmd.Stdin = c.stdin
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return nil, nil, err
 	}
 
-	e2e.Logf("Running '%s %s'", c.execPath, strings.Join(c.finalArgs, " "))
+	e2e.Logf("Running '%s %s'", c.execPath, strings.Join(finalArgs, " "))
 
 	err = cmd.Start()
 	return cmd, stdout, err
@@ -1143,4 +1144,11 @@ func defaultClientTransport(rt http.RoundTripper) http.RoundTripper {
 	// TODO: this should be configured by the caller, not in this method.
 	transport.MaxIdleConnsPerHost = 100
 	return transport
+}
+
+func (c *CLI) assembleArgs() []string {
+	finalArgs := []string{c.command}
+	finalArgs = append(finalArgs, c.commandArgs...)
+	finalArgs = append(finalArgs, c.flags...)
+	return finalArgs
 }
