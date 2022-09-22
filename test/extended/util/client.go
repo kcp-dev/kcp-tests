@@ -76,7 +76,7 @@ type CLI struct {
 	execPath               string
 	command                string
 	configPath             string
-	currentWs              WorkSpace
+	currentWorkSpace       *WorkSpace
 	pClusterConfigPath     string
 	adminConfigPath        string
 	orgServerURL           string // User organization workspace server url
@@ -84,7 +84,7 @@ type CLI struct {
 	username               string
 	flags                  []string
 	commandArgs            []string
-	workSpacesToDelete     []WorkSpace
+	workSpacesToDelete     []*WorkSpace
 	stdin                  *bytes.Buffer
 	stdout                 io.Writer
 	stderr                 io.Writer
@@ -102,15 +102,6 @@ type resourceRef struct {
 	Resource  schema.GroupVersionResource
 	Namespace string
 	Name      string
-}
-
-// WorkSpace definition
-type WorkSpace struct {
-	Name            string   // WorkSpace Name                                                E.g. e2e-test-kcp-workspace-xxxxx
-	CurrentNS       string   // The latest workSpace's namespace created by SetupNameSpace()  E.g. e2e-ns-kcp-workspace-xxxxx
-	Namespaces      []string // WorkSpace's Namespaces created by SetupNameSpace()            E.g. e2e-ns-kcp-workspace-xxxxx
-	ServerURL       string   // WorkSpace ServerURL                                           E.g. https://{{kcp-service-domain}}/clusters/root:orgID:e2e-test-kcp-workspace-xxxxx
-	ParentServerURL string   // WorkSpace ParentServerURL                                     E.g. https://{{kcp-service-domain}}/clusters/root:orgID
 }
 
 var (
@@ -218,7 +209,7 @@ func NewCLIWithWorkSpace(wsPrefix string) *CLI {
 	loadConfigOnce.Do(loadConfig)
 	client.homeServerURL = homeServer
 	client.orgServerURL = orgServer
-	client.currentWs = WorkSpace{Name: "homeWorkSpace", ServerURL: client.homeServerURL, ParentServerURL: ""}
+	client.currentWorkSpace = &WorkSpace{Name: "homeWorkSpace", ServerURL: client.homeServerURL}
 	// Create a workspace for kcp test before each case execute
 	g.BeforeEach(client.SetupWorkSpace)
 
@@ -442,18 +433,6 @@ func (c *CLI) TeardownProject() {
 	}
 }
 
-// SetupNamespace creates a new namespace
-func (c *CLI) SetupNamespace() {
-	newNamespace := names.SimpleNameGenerator.GenerateName(fmt.Sprintf("e2e-ns-%s-", c.kubeFramework.BaseName))
-	e2e.Logf("Creating namespace %q", newNamespace)
-	output, errinfo := c.WithoutNamespace().WithoutKubeconf().Run("create").Args("namespace", newNamespace).Output()
-	o.Expect(errinfo).NotTo(o.HaveOccurred())
-	o.Expect(output).Should(o.ContainSubstring("created"))
-	c.currentWs.CurrentNS = newNamespace
-	c.currentWs.Namespaces = append(c.currentWs.Namespaces, newNamespace)
-	c.workSpacesToDelete[len(c.workSpacesToDelete)-1].Namespaces = append(c.workSpacesToDelete[len(c.workSpacesToDelete)-1].Namespaces, newNamespace)
-}
-
 // SetupWorkSpace creates a new WorkSpace under the org workspace
 func (c *CLI) SetupWorkSpace() {
 	c.SetupWorkSpaceWithSpecificPath(c.homeServerURL)
@@ -462,22 +441,20 @@ func (c *CLI) SetupWorkSpace() {
 // SetupWorkSpaceWithNamespace creates a new WorkSpace under the user's home workspace and creates a namespace under the WorkSpace
 func (c *CLI) SetupWorkSpaceWithNamespace() {
 	c.SetupWorkSpaceWithSpecificPath(c.homeServerURL)
-	c.SetupNamespace()
+	c.currentWorkSpace.SetNamespace(c)
 }
 
 // SetupWorkSpaceWithSpecificPath creates a new WorkSpace with specific paths
 func (c *CLI) SetupWorkSpaceWithSpecificPath(serverURL string) {
 	newWorkSpace := names.SimpleNameGenerator.GenerateName(fmt.Sprintf("e2e-test-%s-", c.kubeFramework.BaseName))
 	e2e.Logf("Creating workspace %q", newWorkSpace)
-	output, errinfo := c.WithoutNamespace().WithoutKubeconf().WithoutWorkSpaceServer().Run("ws").Args("create", "--server="+serverURL, newWorkSpace).Output()
+	output, errinfo := c.WithoutKubeconf().WithoutWorkSpaceServer().Run("ws").Args("create", "--server="+serverURL, newWorkSpace).Output()
 	o.Expect(errinfo).NotTo(o.HaveOccurred())
 	o.Expect(output).Should(o.ContainSubstring("is ready to use"))
-	c.currentWs.Name = newWorkSpace
-	c.currentWs.ParentServerURL = serverURL
-	c.currentWs.ServerURL = serverURL + ":" + newWorkSpace
+	c.currentWorkSpace = &WorkSpace{Name: newWorkSpace, ParentServerURL: serverURL, ServerURL: serverURL + ":" + newWorkSpace}
 	// Add the workspace to teardown deleted list
-	c.workSpacesToDelete = append(c.workSpacesToDelete, c.currentWs)
-	e2e.Logf("Workspace %q has been fully provisioned.", c.currentWs.Name)
+	c.workSpacesToDelete = append(c.workSpacesToDelete, c.currentWorkSpace)
+	e2e.Logf("Workspace %q has been fully provisioned.", c.currentWorkSpace.Name)
 }
 
 // ListWorkSpacesWithSpecificPath returns a list of WorkSpaces under a specific workspace
@@ -688,7 +665,7 @@ func (c *CLI) Namespace() string {
 
 // WorkSpace returns the workspace used in the current test case.
 func (c *CLI) WorkSpace() WorkSpace {
-	return c.currentWs
+	return *c.currentWorkSpace
 }
 
 // OrgServerURL returns the user organization workspace server url.
@@ -703,13 +680,13 @@ func (c *CLI) HomeServerURL() string {
 
 // WithOrgWorkSpaceServer replaces the current workspace with org organization workspace.
 func (c *CLI) WithOrgWorkSpaceServer() *CLI {
-	c.currentWs = WorkSpace{Name: "orgWorkSpace", ServerURL: c.orgServerURL, ParentServerURL: ""}
+	c.currentWorkSpace = &WorkSpace{Name: "orgWorkSpace", ServerURL: c.orgServerURL}
 	return c
 }
 
 // WithSpecificWorkSpaceServer replaces the current workspace with specific workspace.
 func (c *CLI) WithSpecificWorkSpaceServer(ws WorkSpace) *CLI {
-	c.currentWs = ws
+	c.currentWorkSpace = &ws
 	return c
 }
 
@@ -748,14 +725,21 @@ func (c *CLI) Run(command string, flags ...string) *CLI {
 	if c.asPClusterKubeconf && !c.withoutNamespace {
 		FatalErr("you are doing something in ns of pcluster, please use WithoutNamespace and set ns in Args, for example, oc.AsPClusterKubeconf().WithoutNamespace().Run(\"get\").Args(\"pods\", \"-n\", \"pclusterNamespace\").Output()")
 	}
-	if !c.withoutNamespace && c.Namespace() != "" {
-		nc.flags = append(nc.flags, fmt.Sprintf("--namespace=%s", c.Namespace()))
+
+	if !c.withoutNamespace {
+		if !c.isKCPCommand() && c.asPClusterKubeconf && c.Namespace() != "" {
+			nc.flags = append(nc.flags, fmt.Sprintf("--namespace=%s", c.Namespace()))
+		}
+		if !c.isKCPCommand() && !c.asPClusterKubeconf && c.currentWorkSpace.CurrentNameSpace != "" {
+			nc.flags = append(nc.flags, fmt.Sprintf("--namespace=%s", c.currentWorkSpace.CurrentNameSpace))
+		}
 	}
+
 	// TODO: Temp solution for parallel executing our test cases
 	// When https://github.com/kcp-dev/kcp/issues/1689 finished
 	// We could make it simply and just use the --kubeconfig instead of --server.
 	if !c.withoutWorkSpaceServer {
-		nc.flags = append(nc.flags, "--server="+c.currentWs.ServerURL)
+		nc.flags = append(nc.flags, "--server="+c.currentWorkSpace.ServerURL)
 	}
 	nc.stdin, nc.stdout, nc.stderr = in, out, errout
 	return nc.setOutput(c.stdout)
@@ -1164,4 +1148,9 @@ func (c *CLI) assembleArgs() []string {
 	finalArgs = append(finalArgs, c.commandArgs...)
 	finalArgs = append(finalArgs, c.flags...)
 	return finalArgs
+}
+
+func (c *CLI) isKCPCommand() bool {
+	kcpCommands := []string{"kcp", "ws", "workspaces"}
+	return StrSliceContains(kcpCommands, c.command)
 }
