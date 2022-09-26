@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -78,7 +79,7 @@ type CLI struct {
 	currentWs              WorkSpace
 	pClusterConfigPath     string
 	adminConfigPath        string
-	orgServerURL           string // User orgnaization workspace server url
+	orgServerURL           string // User organization workspace server url
 	homeServerURL          string // User homes workspace server url
 	username               string
 	flags                  []string
@@ -103,7 +104,7 @@ type resourceRef struct {
 	Name      string
 }
 
-// WorkSpace defination
+// WorkSpace definition
 type WorkSpace struct {
 	Name            string   // WorkSpace Name                                                E.g. e2e-test-kcp-workspace-xxxxx
 	CurrentNS       string   // The latest workSpace's namespace created by SetupNameSpace()  E.g. e2e-ns-kcp-workspace-xxxxx
@@ -119,18 +120,10 @@ var (
 	homeServer     string
 )
 
-// loadConfig gets the User orgnaization workspace and home workspace servers
+// loadConfig gets the User organization workspace and home workspace servers
 func loadConfig() {
 	var err error
 	// If not set "E2E_TEST_CONTEXT" use "kcp-stable" testContext by default
-	testContext = os.Getenv("E2E_TEST_CONTEXT")
-	if testContext == "" {
-		testContext = "kcp-stable"
-		e2e.Debugf(`Env var "E2E_TEST_CONTEXT" does not exist, using kcp-stable context`)
-	}
-	configJSON := ReadKubeConfig(KubeConfigPath())
-	orgServer = gjson.Get(configJSON, `clusters.#(name="`+testContext+`").cluster.server`).String()
-	e2e.Debugf(`User orgnaization workspace server is: "%s"`, orgServer)
 	client := &CLI{
 		execPath:               "kubectl",
 		withoutNamespace:       true,
@@ -139,7 +132,27 @@ func loadConfig() {
 		showInfo:               false,
 		adminConfigPath:        KubeConfigPath(),
 	}
-	rootServer := GetParentWsServerURL(orgServer)
+	testContext = os.Getenv("E2E_TEST_CONTEXT")
+	if testContext == "" {
+		testContext = "kcp-stable"
+		e2e.Debugf(`Env var "E2E_TEST_CONTEXT" does not exist, using kcp-stable context`)
+	}
+	configJSON := ReadKubeConfig(KubeConfigPath())
+	currentServerURL := gjson.Get(configJSON, `clusters.#(name="workspace.kcp.dev/current").cluster.server`).String()
+	u, err := url.Parse(currentServerURL)
+	if err != nil {
+		e2e.Debugf(`Failed to parse currentServerURL: "%s"`, currentServerURL)
+	}
+	rootServer := u.Scheme + "://" + u.Host + "/clusters/root"
+	if gjson.Get(configJSON, `clusters.#(name="`+testContext+`").cluster.server`).Exists() {
+		orgServer = gjson.Get(configJSON, `clusters.#(name="`+testContext+`").cluster.server`).String()
+	} else {
+		orgServer, err = client.Run("get").Args("workspace", "--server="+rootServer, `-o=jsonpath={.items[?(@.spec.type.name=='organization')].status.URL}`).Output()
+		if err != nil {
+			e2e.Logf(`Getting organization workspace server failed: "%v"`, err)
+		}
+	}
+	e2e.Debugf(`User organization workspace server is: "%s"`, orgServer)
 	homeServer, err = client.Run("get").Args("workspace/~", "--server="+rootServer, "-o=jsonpath={.status.URL}").Output()
 	if err != nil {
 		e2e.Logf(`Getting home workspace server failed: "%v"`, err)
@@ -678,7 +691,7 @@ func (c *CLI) WorkSpace() WorkSpace {
 	return c.currentWs
 }
 
-// OrgServerURL returns the user orgnaization workspace server url.
+// OrgServerURL returns the user organization workspace server url.
 func (c *CLI) OrgServerURL() string {
 	return c.orgServerURL
 }
@@ -688,7 +701,7 @@ func (c *CLI) HomeServerURL() string {
 	return c.homeServerURL
 }
 
-// WithOrgWorkSpaceServer replaces the current workspace with org orgnaization workspace.
+// WithOrgWorkSpaceServer replaces the current workspace with org organization workspace.
 func (c *CLI) WithOrgWorkSpaceServer() *CLI {
 	c.currentWs = WorkSpace{Name: "orgWorkSpace", ServerURL: c.orgServerURL, ParentServerURL: ""}
 	return c
@@ -733,12 +746,12 @@ func (c *CLI) Run(command string, flags ...string) *CLI {
 		}
 	}
 	if c.asPClusterKubeconf && !c.withoutNamespace {
-		FatalErr("you are doing something in ns of pcluster, please use WithoutNamespace and set ns in Args, for example, oc.AsPClusterKubeconf().WithoutNamespace().Run(\"get\").Args(\"pods\", \"-n\", \"pclusterns\").Output()")
+		FatalErr("you are doing something in ns of pcluster, please use WithoutNamespace and set ns in Args, for example, oc.AsPClusterKubeconf().WithoutNamespace().Run(\"get\").Args(\"pods\", \"-n\", \"pclusterNamespace\").Output()")
 	}
 	if !c.withoutNamespace && c.Namespace() != "" {
 		nc.flags = append(nc.flags, fmt.Sprintf("--namespace=%s", c.Namespace()))
 	}
-	// TODO: Temp solution for parallelly ececute our test cases
+	// TODO: Temp solution for parallel executing our test cases
 	// When https://github.com/kcp-dev/kcp/issues/1689 finished
 	// We could make it simply and just use the --kubeconfig instead of --server.
 	if !c.withoutWorkSpaceServer {
