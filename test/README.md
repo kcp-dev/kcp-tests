@@ -6,7 +6,7 @@ In order to make the `Golang` case running stable, please follow the below check
 - Please **clean up** the created resources no matter the case exits normal or not, the `Defer` is recommend.
 - These `Golang` cases running parallelly by default, please don't use common names for your resources.
 - The namespace created by the `oc.SetupProject()` will be removed automatically after the case running done.
-- Please avoid using `oc.SetupNamespace()` to setup the namespace because it potentially impacts other case execution in parallel.
+- Please avoid using `oc.SetNamespace()` to setup the namespace because it potentially impacts other case execution in parallel.
 - Call the `exutil.FixturePath()` function in `g.It()`, not in `g.Describe()`.
 - Output the logs as **less** as you can.
 - For `g.Describe()`, please ensure set the correct `sub-team` name .

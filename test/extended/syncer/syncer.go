@@ -40,7 +40,7 @@ var _ = g.Describe("[area/transparent-multi-cluster]", func() {
 		mySyncer.CheckDisplayColumns(k)
 
 		g.By("# Creating workload using the BYO compute should work well")
-		myDeployment := exutil.NewDeployment(exutil.SetDeploymentNameSpace(myWs.CurrentNS))
+		myDeployment := exutil.NewDeployment(exutil.SetDeploymentNameSpace(myWs.CurrentNameSpace))
 		defer myDeployment.Clean(k)
 		myDeployment.Create(k)
 		myDeployment.WaitUntilReady(k)
