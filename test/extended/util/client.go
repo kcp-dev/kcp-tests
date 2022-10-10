@@ -107,6 +107,7 @@ type resourceRef struct {
 var (
 	loadConfigOnce sync.Once
 	testContext    string
+	rootServer     string
 	orgServer      string
 	homeServer     string
 )
@@ -125,23 +126,29 @@ func loadConfig() {
 	}
 	testContext = os.Getenv("E2E_TEST_CONTEXT")
 	if testContext == "" {
-		testContext = "kcp-stable"
-		e2e.Debugf(`Env var "E2E_TEST_CONTEXT" does not exist, using kcp-stable context`)
+		testContext = "kcp-stable-root"
+		e2e.Debugf(`Env var "E2E_TEST_CONTEXT" does not exist, using kcp-stable-root context`)
 	}
 	configJSON := ReadKubeConfig(KubeConfigPath())
-	currentServerURL := gjson.Get(configJSON, `clusters.#(name="workspace.kcp.dev/current").cluster.server`).String()
-	u, err := url.Parse(currentServerURL)
-	if err != nil {
-		e2e.Debugf(`Failed to parse currentServerURL: "%s"`, currentServerURL)
-	}
-	rootServer := u.Scheme + "://" + u.Host + "/clusters/root"
 	if gjson.Get(configJSON, `clusters.#(name="`+testContext+`").cluster.server`).Exists() {
-		orgServer = gjson.Get(configJSON, `clusters.#(name="`+testContext+`").cluster.server`).String()
-	} else {
-		orgServer, err = client.Run("get").Args("workspace", "--server="+rootServer, `-o=jsonpath={.items[?(@.spec.type.name=='organization')].status.URL}`).Output()
+		testContextServer := gjson.Get(configJSON, `clusters.#(name="`+testContext+`").cluster.server`).String()
+		u, err := url.Parse(testContextServer)
 		if err != nil {
-			e2e.Logf(`Getting organization workspace server failed: "%v"`, err)
+			e2e.Debugf(`Failed to parse testContextServer URL: "%s"`, testContextServer)
 		}
+		rootServer = u.Scheme + "://" + u.Host + "/clusters/root"
+	} else {
+		e2e.Debugf(`Context "%s" does not exist in kubeconfig, using "current-context"`, testContext)
+		currentContextServer := gjson.Get(configJSON, `clusters.#(name="`+gjson.Get(configJSON, `current-context`).String()+`").cluster.server`).String()
+		u, err := url.Parse(currentContextServer)
+		if err != nil {
+			e2e.Debugf(`Failed to parse currentContextServer URL: "%s"`, currentContextServer)
+		}
+		rootServer = u.Scheme + "://" + u.Host + "/clusters/root"
+	}
+	orgServer, err = client.Run("get").Args("workspace", "--server="+rootServer, `-o=jsonpath={.items[?(@.spec.type.name=='organization')].status.URL}`).Output()
+	if err != nil {
+		e2e.Logf(`Getting organization workspace server failed: "%v"`, err)
 	}
 	e2e.Debugf(`User organization workspace server is: "%s"`, orgServer)
 	homeServer, err = client.Run("get").Args("workspace/~", "--server="+rootServer, "-o=jsonpath={.status.URL}").Output()
