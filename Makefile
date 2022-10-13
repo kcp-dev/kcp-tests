@@ -21,6 +21,9 @@ check-code:
 pr-test:
 	python3 ./hack/pr.py
 
+login:
+	./hack/login_with_offline_token.sh
+
 # Include the library makefile
 include $(addprefix ./, bindata.mk)
 
