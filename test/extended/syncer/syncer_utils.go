@@ -2,6 +2,7 @@ package syncer
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -58,13 +59,31 @@ func (s *SyncTarget) Create(k *exutil.CLI) {
 
 }
 
+// GetSynerImageTag gets the syncer image tag by kcp server version/gitCommit
+// returns kcp server version tag for kcp release versions test environments
+// returns kcp server gitCommit tag for kcp dev versions test environments
+func (s *SyncTarget) GetSynerImageTag(k *exutil.CLI) string {
+	var (
+		syncerImageTag string
+		err            error
+	)
+	if os.Getenv("E2E_TEST_CONTEXT") == "kcp-unstable-root" {
+		syncerImageTag, err = exutil.GetKcpServerGitCommit(k)
+		o.Expect(err).ShouldNot(o.HaveOccurred())
+		o.Expect(syncerImageTag).Should(o.Not(o.BeEmpty()))
+		syncerImageTag = syncerImageTag[:len(syncerImageTag)-1]
+	} else {
+		syncerImageTag, err = exutil.GetKcpServerVersion(k)
+		o.Expect(err).ShouldNot(o.HaveOccurred())
+		o.Expect(syncerImageTag).Should(o.MatchRegexp(`v\d+(.\d+){0,2}`))
+	}
+	return syncerImageTag
+}
+
 // CreateAsExpectedResult creates SyncTarget CR and checks the created result is as expected
 func (s *SyncTarget) CreateAsExpectedResult(k *exutil.CLI, successFlag bool, containsMsg string) {
-	kcpServerVersion, getError := exutil.GetKcpServerVersion(k)
-	o.Expect(getError).ShouldNot(o.HaveOccurred())
-	o.Expect(kcpServerVersion).Should(o.MatchRegexp(`v\d+(.\d+){0,2}`))
 	msg, createError := k.WithoutNamespace().WithoutKubeconf().WithoutWorkSpaceServer().Run("kcp").Args("--server="+s.WorkSpaceServer, "workload", "sync", s.Name,
-		"--syncer-image=ghcr.io/kcp-dev/kcp/syncer:"+kcpServerVersion, "--output-file="+s.OutputFilePath).Output()
+		"--syncer-image=ghcr.io/kcp-dev/kcp/syncer:"+s.GetSynerImageTag(k), "--output-file="+s.OutputFilePath).Output()
 	if successFlag {
 		o.Expect(createError).ShouldNot(o.HaveOccurred())
 		o.Expect(msg).Should(o.ContainSubstring(containsMsg))
@@ -99,6 +118,18 @@ func (s *SyncTarget) WaitUntilReady(k *exutil.CLI) {
 	exutil.AssertWaitPollNoErr(err, fmt.Sprintf("Waiting for SyncTarget/%s to become ready times out", s.Name))
 }
 
+// WaitDeploymentsAPISynced waits the deployments api resource synced
+func (s *SyncTarget) WaitDeploymentsAPISynced(k *exutil.CLI) {
+	exutil.WaitSpecificAPISyncedInSpecificWorkSpace(k, "deployments", s.WorkSpaceServer)
+	e2e.Logf("The syntarget/%s's deployments api resource synced succeed", s.Name)
+}
+
+// WaitUntilReadyAndDeploymentsAPISynced waits the SyncTarget become ready and the deployments api resource synced
+func (s *SyncTarget) WaitUntilReadyAndDeploymentsAPISynced(k *exutil.CLI) {
+	s.WaitUntilReady(k)
+	s.WaitDeploymentsAPISynced(k)
+}
+
 // CheckDisplayColumns checks the SyncTarget info showing the expected columns
 func (s *SyncTarget) CheckDisplayColumns(k *exutil.CLI) {
 	// Check the display columns
@@ -119,14 +150,17 @@ func (s *SyncTarget) CheckDisplayColumns(k *exutil.CLI) {
 		o.ContainSubstring("KEY"),
 		o.ContainSubstring("AGE"),
 	))
-	// Check all the display attributes not be empty
 	displayLines := strings.Split(string(syncTargetInfo), "\n")
 	schemaAttributes := strings.Fields(strings.TrimSpace(displayLines[0]))
-	attributesValues := strings.Fields(strings.TrimSpace(displayLines[1]))
+	// Check all the display attributes not be empty
 	// "SYNCED API RESOURCES" will be recognized to 3 different columns
 	// while its value only displays in one column
 	// "len(schemaAttributes)-2" should be equal to "len(attributesValues)"
-	o.Expect(len(schemaAttributes) - 2).Should(o.Equal(len(attributesValues)))
+	o.Eventually(func() int {
+		syncTargetInfo, _ = k.WithoutNamespace().WithoutKubeconf().WithoutWorkSpaceServer().Run("get").Args("--server="+s.WorkSpaceServer, "synctarget", s.Name, "-o", "wide").Output()
+		displayLines = strings.Split(string(syncTargetInfo), "\n")
+		return len(strings.Fields(strings.TrimSpace(displayLines[1])))
+	}, 120*time.Second, 5*time.Second).Should(o.Equal(len(schemaAttributes) - 2))
 }
 
 // Delete the SyncTarget

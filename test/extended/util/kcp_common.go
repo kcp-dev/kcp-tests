@@ -15,6 +15,7 @@ import (
 	g "github.com/onsi/ginkgo"
 	o "github.com/onsi/gomega"
 	"github.com/tidwall/gjson"
+	"k8s.io/apimachinery/pkg/util/wait"
 	e2e "k8s.io/kubernetes/test/e2e/framework"
 )
 
@@ -205,4 +206,26 @@ func GetKcpServerVersion(k *CLI) (string, error) {
 		kcpServerVersion = strings.TrimPrefix(regexp.MustCompile(`kcp-v\d+(.\d+){0,2}`).FindString(kcpServerVersion), "kcp-")
 	}
 	return kcpServerVersion, err
+}
+
+// GetKcpServerGitCommit gets the kcp server gitCommit
+func GetKcpServerGitCommit(k *CLI) (string, error) {
+	var (
+		output, kcpServerGitCommit string
+		err                        error
+	)
+	output, err = k.WithoutNamespace().Run("version").Args("-o", "json").Output()
+	if err == nil {
+		kcpServerGitCommit = gjson.Get(output, `serverVersion.gitCommit`).String()
+	}
+	return kcpServerGitCommit, err
+}
+
+// WaitSpecificAPISyncedInSpecificWorkSpace waits the specific api-resource synced in specific workspace
+func WaitSpecificAPISyncedInSpecificWorkSpace(k *CLI, specificAPI string, specificWsURL string) {
+	err := wait.Poll(5*time.Second, 180*time.Second, func() (bool, error) {
+		output, err := k.WithoutNamespace().WithoutKubeconf().WithoutWorkSpaceServer().Run("api-resources").Args("--server=" + specificWsURL).Output()
+		return strings.Contains(output, specificAPI), err
+	})
+	AssertWaitPollNoErr(err, fmt.Sprintf("Waiting for API/%s synced to workspace/%s times out", specificAPI, specificWsURL))
 }
