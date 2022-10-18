@@ -16,7 +16,7 @@ This repository holds the kcp tests that tests against the publicly available  i
   ```
 
 * Have the environment variable `KUBECONFIG` set pointing to your kcp service
-  - If your `KUBECONFIG` has multiple contexts please specific target test environment by using environment variable `E2E_TEST_CONTEXT` ( In addition, if the specified test context doesn't exist, it will try to use `kcp-stable-root` context, if `kcp-stable-root` doesn't exist either, it'll use the `current-context` in `KUBECONFIG` instead). 
+  - If your `KUBECONFIG` has multiple contexts please specific target test environment by using environment variable `E2E_TEST_CONTEXT` ( In addition, if the environment variable `E2E_TEST_CONTEXT` doesn't exist, it will try to use `kcp-stable-root` context, if `kcp-stable-root` doesn't exist either, it'll use the `current-context` in `KUBECONFIG` instead). 
     ```console
     $ export E2E_TEST_CONTEXT="<specific test context>"
     ```
