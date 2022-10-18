@@ -745,7 +745,7 @@ func (c *CLI) Run(command string, flags ...string) *CLI {
 	// TODO: Temp solution for parallel executing our test cases
 	// When https://github.com/kcp-dev/kcp/issues/1689 finished
 	// We could make it simply and just use the --kubeconfig instead of --server.
-	if !c.withoutWorkSpaceServer {
+	if !c.withoutWorkSpaceServer && !c.asPClusterKubeconf {
 		nc.flags = append(nc.flags, "--server="+c.currentWorkSpace.ServerURL)
 	}
 	nc.stdin, nc.stdout, nc.stderr = in, out, errout
