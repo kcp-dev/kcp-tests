@@ -41,7 +41,7 @@ func StrSliceContainsDuplicate(strings []string) bool {
 	return false
 }
 
-// StrSliceIntersect use for none dupulicate elements slice intersect
+// StrSliceIntersect use for none duplicate elements slice intersect
 func StrSliceIntersect(slice1, slice2 []string) []string {
 	m := make(map[string]int)
 	sliceResult := make([]string, 0)
