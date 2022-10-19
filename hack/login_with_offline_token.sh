@@ -30,4 +30,4 @@ ID_TOKEN=$(echo "$SSO_TOKEN" | jq .id_token)
 
 # Write the token to oidc-login cache
 echo "{\"id_token\":${ID_TOKEN},\"refresh_token\":${REFRESH_TOKEN}}" > ~/.kube/cache/oidc-login/de0b44c30948a686e739661da92d5a6bf9c6b1fb85ce4c37589e089ba03d0ec6
-echo 'INFO: Log into kcp service with "OFFLINE_TOKEN" succeed'
+echo 'INFO: Log in to kcp service with "OFFLINE_TOKEN" succeed'
