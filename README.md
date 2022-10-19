@@ -25,7 +25,7 @@ This repository holds the kcp tests that tests against the publicly available  i
   ```console
   $ kubectl oidc-login get-token --oidc-issuer-url=<oidc issuer url> --oidc-client-id=<oidc client ID> --oidc-redirect-url-hostname=127.0.0.1
   ```
-  - For kcp services deploy with redhat sso ( Only supported kcp services deploy with redhat sso ), there's another login method called `login with offline token` that could be used, you could get an offline token ( [How to generate an offline token](https://access.redhat.com/articles/3626371#bgenerating-a-new-offline-tokenb-3) ) and log in to the kcp service by executing the following commands with out having to input credentials into the browser.
+  - For kcp services deploy with redhat sso, there's another login method called `login with offline token` that could be used, you could get an offline token ( [How to generate an offline token](https://access.redhat.com/articles/3626371#bgenerating-a-new-offline-tokenb-3) ) and log in to the kcp service by executing the following commands with out having to input credentials into the browser.
     ```console
     $ export OFFLINE_TOKEN=<YOUR_OFFLINE_TOKEN>
     $ make login
