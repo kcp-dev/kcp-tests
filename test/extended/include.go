@@ -7,5 +7,6 @@ import (
 	_ "github.com/kcp-dev/kcp-tests/test/extended/common"
 	_ "github.com/kcp-dev/kcp-tests/test/extended/placements"
 	_ "github.com/kcp-dev/kcp-tests/test/extended/syncer"
+	_ "github.com/kcp-dev/kcp-tests/test/extended/quota"
 	_ "github.com/kcp-dev/kcp-tests/test/extended/workspacetype"
 )

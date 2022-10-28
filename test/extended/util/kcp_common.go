@@ -165,7 +165,6 @@ func AssertWaitPollNoErr(e error, msg string) {
 		err = fmt.Errorf("case: %v\nerror: %s", g.CurrentGinkgoTestDescription().TestText, e.Error())
 	}
 	o.Expect(err).NotTo(o.HaveOccurred())
-
 }
 
 // AssertWaitPollWithErr e is return value of Wait.Poll
@@ -181,7 +180,6 @@ func AssertWaitPollWithErr(e error, msg string) {
 
 	err := fmt.Errorf("case: %v\nexpected error not got because of %v", g.CurrentGinkgoTestDescription().TestText, msg)
 	o.Expect(err).NotTo(o.HaveOccurred())
-
 }
 
 // StructMarshalOutputToFile executes the command and store output to a file
