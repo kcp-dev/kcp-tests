@@ -129,6 +129,7 @@ require (
 	github.com/opencontainers/runc v1.0.0-rc9.0.20200116150719-f6fb7a0338c3 // indirect
 	github.com/opencontainers/runtime-spec v1.0.0 // indirect
 	github.com/opencontainers/selinux v1.3.1-0.20190929122143-5215b1806f52 // indirect
+	github.com/openshift/openshift-tests v0.0.0-20220921083135-e27bbb957ad6 // indirect
 	github.com/pelletier/go-toml v1.2.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pkg/profile v1.3.0 // indirect

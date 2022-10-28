@@ -36,7 +36,7 @@ var _ = g.Describe("[area/transparent-multi-cluster]", func() {
 		defer k.AsPClusterKubeconf().WithoutNamespace().WithoutWorkSpaceServer().Run("delete").Args("-f", mySyncer.OutputFilePath).Execute()
 		err := k.AsPClusterKubeconf().WithoutNamespace().WithoutWorkSpaceServer().Run("apply").Args("-f", mySyncer.OutputFilePath).Execute()
 		o.Expect(err).ShouldNot(o.HaveOccurred())
-		mySyncer.WaitUntilReady(k)
+		mySyncer.WaitUntilReadyAndDeploymentsAPISynced(k)
 		mySyncer.CheckDisplayColumns(k)
 
 		g.By("# Creating workload using the BYO compute should work well")
@@ -47,18 +47,18 @@ var _ = g.Describe("[area/transparent-multi-cluster]", func() {
 		myDeployment.CheckDisplayColumns(k)
 
 		g.By("# Check the deployment's status on pcluster")
-		avaiablableReplicasOnPcluster, getError := k.AsPClusterKubeconf().WithoutNamespace().WithoutWorkSpaceServer().Run("get").Args("deployment", "-A", `-o=jsonpath={.items[?(@.metadata.name=="`+myDeployment.Name+`")].status.availableReplicas}`).Output()
+		availableReplicasOnPcluster, getError := k.AsPClusterKubeconf().WithoutNamespace().WithoutWorkSpaceServer().Run("get").Args("deployment", "-A", `-o=jsonpath={.items[?(@.metadata.name=="`+myDeployment.Name+`")].status.availableReplicas}`).Output()
 		o.Expect(getError).ShouldNot(o.HaveOccurred())
-		o.Expect(avaiablableReplicasOnPcluster).Should(o.Equal("1"))
+		o.Expect(availableReplicasOnPcluster).Should(o.Equal("1"))
 
 		g.By("# Scale up the deployment replicas and wait for scaling up successfully")
 		myDeployment.ScaleReplicas(k, "10")
 		myDeployment.WaitUntilReady(k)
 
 		g.By("# Check the deployment replicas number on pcluster is as expected")
-		avaiablableReplicasOnPcluster, getError = k.AsPClusterKubeconf().WithoutNamespace().WithoutWorkSpaceServer().Run("get").Args("deployment", "-A", `-o=jsonpath={.items[?(@.metadata.name=="`+myDeployment.Name+`")].status.availableReplicas}`).Output()
+		availableReplicasOnPcluster, getError = k.AsPClusterKubeconf().WithoutNamespace().WithoutWorkSpaceServer().Run("get").Args("deployment", "-A", `-o=jsonpath={.items[?(@.metadata.name=="`+myDeployment.Name+`")].status.availableReplicas}`).Output()
 		o.Expect(getError).ShouldNot(o.HaveOccurred())
-		o.Expect(avaiablableReplicasOnPcluster).Should(o.Equal("10"))
+		o.Expect(availableReplicasOnPcluster).Should(o.Equal("10"))
 
 		g.By("# Delete the workload and verify the deployment is no longer present in the pcluster")
 		myDeployment.Delete(k)
