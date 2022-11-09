@@ -81,10 +81,12 @@ func (apb *APIBinding) Create(k *exutil.CLI) {
 func (apb *APIBinding) CreateAsExpectedResult(k *exutil.CLI, successFlag bool, containsMsg string) {
 	outputFile, err := exutil.StructMarshalOutputToFile(apb, apb.Metadata.Name)
 	o.Expect(err).NotTo(o.HaveOccurred())
-	msg := exutil.ApplyResourceFromTemplate(k, outputFile)
+	msg, applyErr := exutil.ApplyResourceFromTemplate(k, outputFile)
 	if successFlag {
+		o.Expect(applyErr).ShouldNot(o.HaveOccurred())
 		o.Expect(msg).Should(o.ContainSubstring(containsMsg))
 	} else {
+		o.Expect(applyErr).Should(o.HaveOccurred())
 		o.Expect(fmt.Sprint(msg)).Should(o.ContainSubstring(containsMsg))
 	}
 }
