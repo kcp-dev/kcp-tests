@@ -16,12 +16,24 @@
 FROM golang:1.18 AS builder
 
 WORKDIR /build-dir
-# Copy the go source
-COPY . .
-# cache deps before building and copying source so that we don't need to re-download as much
+
+# Copy the Go Modules manifests
+COPY go.mod go.mod
+COPY go.sum go.sum
+# Cache dependencies before building and copying source so that we don't need to re-download as much
 # and so that source changes don't invalidate our downloaded layer
 USER 0
 RUN go mod download
+
+# Copy the go source 
+COPY Makefile Makefile
+COPY bindata.mk bindata.mk
+COPY pkg/ pkg/
+COPY cmd/ cmd/
+COPY hack/ hack/
+COPY test/ test/
+
+# Build the kcp-tests binary
 RUN make build
 
 FROM quay.io/centos/centos:stream8
@@ -29,7 +41,7 @@ LABEL maintainer="KCP QE Team"
 USER root
 WORKDIR /
 
-RUN dnf install -y curl unzip jq && \
+RUN dnf install -y unzip jq && \
     dnf clean all && \
     curl -fsL -o /usr/local/bin/kubectl "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/$(uname -m | sed 's/aarch.*/arm64/;s/armv8.*/arm64/;s/x86_64/amd64/')/kubectl" && \   
     curl -fsL -o /tmp/kubelogin.zip "https://github.com/int128/kubelogin/releases/download/$(curl -L -s https://dl.k8s.io/release/stable.txt)/kubelogin_linux_$(uname -m | sed 's/aarch.*/arm64/;s/armv8.*/arm64/;s/x86_64/amd64/').zip" && \
