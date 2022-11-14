@@ -29,10 +29,11 @@ var _ = g.Describe("[area/quota]", func() {
 
 		g.By("# Create quota under the current workspace")
 		quotaTemplate := exutil.FixturePath("testdata", "quota", "quota.yaml")
-		exutil.CreateResourceFromTemplateWithVariables(k, quotaTemplate, map[string]string{
+		_, err = exutil.CreateResourceFromTemplateWithVariables(k, quotaTemplate, map[string]string{
 			"NUM_CONFIGMAP": "20",
 			"NUM_SECRET":    "20",
 		})
+		o.Expect(err).NotTo(o.HaveOccurred())
 
 		g.By("Create a few secrets and configmaps in default namespace.")
 		for i := 1; i <= 21; i++ {
@@ -52,10 +53,11 @@ var _ = g.Describe("[area/quota]", func() {
 		}
 
 		g.By("# Increase the upper quota, create a few secrets and configmaps to exceed the upper limit")
-		exutil.ApplyResourceFromTemplateWithVariables(k, quotaTemplate, map[string]string{
+		_, err = exutil.ApplyResourceFromTemplateWithVariables(k, quotaTemplate, map[string]string{
 			"NUM_CONFIGMAP": "25",
 			"NUM_SECRET":    "25",
 		})
+		o.Expect(err).NotTo(o.HaveOccurred())
 
 		for i := 20; i <= 26; i++ {
 			err = k.WithoutNamespace().Run("create").Args("secret", "generic", fmt.Sprintf("e2e-quota-secret-%d", i), "--from-literal", "abcdefg='12345^&*()'").Execute()
