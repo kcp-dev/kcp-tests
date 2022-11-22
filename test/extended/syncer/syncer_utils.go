@@ -172,7 +172,7 @@ func (s *SyncTarget) Delete(k *exutil.CLI) {
 func (s *SyncTarget) Clean(k *exutil.CLI) error {
 	// TODO: Temp solution for known limitation: https://github.com/kcp-dev/kcp/issues/999
 	// Need to remove after the issue solved
-	mySyncerKey, _ := k.WithoutNamespace().WithoutKubeconf().WithoutWorkSpaceServer().Run("get").Args("--server="+s.WorkSpaceServer, "synctarget", s.Name, `-o=jsonpath={.metadata.labels.internal\.workload\.kcp\.dev/key}`).Output()
+	mySyncerKey, _ := k.WithoutNamespace().WithoutKubeconf().Run("get").Args("--server="+s.WorkSpaceServer, "synctarget", s.Name, `-o=jsonpath={.metadata.labels.internal\.workload\.kcp\.dev/key}`).Output()
 	k.AsPClusterKubeconf().WithoutNamespace().WithoutWorkSpaceServer().Run("delete").Args("ns", "-l", "internal.workload.kcp.dev/cluster="+mySyncerKey).Execute()
 	return k.WithoutNamespace().WithoutKubeconf().WithoutWorkSpaceServer().Run("delete").Args("--server="+s.WorkSpaceServer, "synctarget", s.Name).Execute()
 }

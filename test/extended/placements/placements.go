@@ -84,9 +84,9 @@ var _ = g.Describe("[area/transparent-multi-cluster]", func() {
 		mySyncer.WaitUntilReady(k)
 
 		g.By("# Verify that default placement has been created for BYO cluster")
-		default_placement_byo, err := k.WithoutNamespace().WithoutKubeconf().Run("get").Args("placement", "default", "-o", "json").Output()
+		defaultPlacementByo, err := k.WithoutNamespace().WithoutKubeconf().Run("get").Args("placement", "default", "-o", "json").Output()
 		o.Expect(err).NotTo(o.HaveOccurred())
-		o.Expect(default_placement_byo).Should(o.And(
+		o.Expect(defaultPlacementByo).Should(o.And(
 			o.ContainSubstring("locationWorkspace"),
 			o.ContainSubstring(myWs.Name),
 			o.ContainSubstring("internal.workload.kcp.dev/synctarget"),
@@ -94,7 +94,7 @@ var _ = g.Describe("[area/transparent-multi-cluster]", func() {
 
 		g.By("# Verify that APIBinding will be annotated with workload.kcp.dev/skip-default-object-creation")
 		o.Eventually(func() string {
-			apiBindingAnnotations, _ := k.WithoutNamespace().WithoutKubeconf().Run("get").Args("apibinding", myAPIBinding.Metadata.Name, "-o", "jsonpath={.metadata.annotations}").Output()
+			apiBindingAnnotations, _ := k.WithoutNamespace().WithoutKubeconf().Run("get").Args("apibinding", "kubernetes", "-o", "jsonpath={.metadata.annotations}").Output()
 			return apiBindingAnnotations
 		}, 120*time.Second, 5*time.Second).Should(o.ContainSubstring("workload.kcp.dev/skip-default-object-creation"))
 
