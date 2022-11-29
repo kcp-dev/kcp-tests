@@ -1,0 +1,13 @@
+apiVersion: scheduling.kcp.dev/v1alpha1
+kind: Placement
+metadata:
+  name: "$(NAME)"
+spec:
+  locationResource:
+    group: workload.kcp.dev
+    resource: synctargets
+    version: v1alpha1
+  locationSelectors:
+    - {}
+  locationWorkspace: "$(LOCATION_WORKSPACE)"
+  namespaceSelector: {}

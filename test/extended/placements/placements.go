@@ -1,7 +1,9 @@
 package placements
 
 import (
+	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	g "github.com/onsi/ginkgo"
@@ -113,6 +115,58 @@ var _ = g.Describe("[area/transparent-multi-cluster]", func() {
 				o.ContainSubstring("Sync"),
 			))
 		}
+	})
 
+	g.It("Author:zxiao-Critical-Verify placements can be correctly created/displayed/deleted for shared compute", func() {
+		exutil.PreCheckEnvSupport(k, "kcp-stable.apps.kcp-internal", "kcp-unstable.apps.kcp-internal")
+		workspace := k.WorkSpace()
+		placementNames := make([]string, 0)
+
+		g.By("# Create five identical placements")
+		for i := 1; i <= 3; i++ {
+			placementName := fmt.Sprintf("test-%s-%d", workspace.Name, i)
+			placementNames = append(placementNames, placementName)
+			g.By(fmt.Sprintf(">	#.%d Create placement with name %s", i, placementName))
+			template := exutil.FixturePath("testdata", "placement", "placement.yaml")
+			_, err := exutil.ApplyResourceFromTemplateWithVariables(k, template, map[string]string{
+				"NAME":               placementName,
+				"LOCATION_WORKSPACE": "root:redhat-acm-compute",
+			})
+			o.Expect(err).NotTo(o.HaveOccurred())
+		}
+
+		g.By("# Check if all placements are correctly displayed")
+		output, err := k.WithoutNamespace().WithoutKubeconf().Run("get").Args("placement").Output()
+		o.Expect(err).NotTo(o.HaveOccurred())
+		for _, placementName := range placementNames {
+			o.Expect(output).To(o.ContainSubstring(placementName))
+		}
+
+		g.By("# Delete placement one-by-one while checking if all placements are correctly displayed")
+		for i, placementName := range placementNames {
+			g.By(">	#.1 Delete placement")
+			err = k.WithoutNamespace().WithoutKubeconf().Run("delete").Args("placement", placementName).Execute()
+			o.Expect(err).NotTo(o.HaveOccurred())
+
+			g.By(">	#.2 Check if all placements are correctly displayed")
+			o.Eventually(func() bool {
+				output, err = k.WithoutNamespace().WithoutKubeconf().Run("get").Args("placement").Output()
+				if err != nil {
+					return false
+				}
+
+				if strings.Contains(output, placementName) {
+					return false
+				}
+
+				for j := i + 1; j < len(placementNames); j++ {
+					availablePlacementName := placementNames[j]
+					if !strings.Contains(output, availablePlacementName) {
+						return false
+					}
+				}
+				return true
+			}, 60*time.Second, 1*time.Second).Should(o.BeTrue(), "placement is not correctly displayed")
+		}
 	})
 })
