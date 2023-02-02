@@ -43,4 +43,40 @@ var _ = g.Describe("[area/apiexports]", func() {
 		o.Expect(err).NotTo(o.HaveOccurred())
 		o.Expect(finalizers).Should(o.ContainSubstring("workload.kcp.dev/syncer"))
 	})
+
+	g.It("Author:zxiao-Critical-[KCP] Verify if APIBinding binds with exported custom resource", func() {
+		g.By("# Create a test workspace")
+		k.SetupWorkSpace()
+
+		g.By("# Create cowboy custom resource APIResourceSchema")
+		rsTemplate := exutil.FixturePath("testdata", "apibinding", "api_rs.yaml")
+		_, err := exutil.CreateResourceFromTemplate(k, rsTemplate)
+		o.Expect(err).NotTo(o.HaveOccurred())
+
+		g.By("# Create APIExport for custom resource")
+		exportTemplate := exutil.FixturePath("testdata", "apibinding", "api_export.yaml")
+		_, err = exutil.CreateResourceFromTemplate(k, exportTemplate)
+		o.Expect(err).NotTo(o.HaveOccurred())
+
+		// BUG: https://github.com/kcp-dev/kcp/issues/1939
+		g.By("# BUG: apply role binding hack to allow api-binding for non-admin user")
+		roleHackTemplate := exutil.FixturePath("testdata", "apibinding", "role_hack.yaml")
+		_, err = exutil.CreateResourceFromTemplate(k, roleHackTemplate)
+		o.Expect(err).NotTo(o.HaveOccurred())
+
+		g.By("# Create APIBinding for custom resource cowboy")
+		bindingTemplate := exutil.FixturePath("testdata", "apibinding", "api_binding.yaml")
+		_, err = exutil.CreateResourceFromTemplate(k, bindingTemplate)
+		o.Expect(err).NotTo(o.HaveOccurred())
+
+		g.By("# Check if custom resource is available")
+		output, err := k.Run("api-resources").Output()
+		o.Expect(err).NotTo(o.HaveOccurred())
+		o.Expect(output).To(o.ContainSubstring("cowboy"))
+
+		g.By("# Create cowboy custom resource object")
+		cowboyTemplate := exutil.FixturePath("testdata", "apibinding", "cowboy.yaml")
+		_, err = exutil.CreateResourceFromTemplate(k, cowboyTemplate)
+		o.Expect(err).NotTo(o.HaveOccurred())
+	})
 })

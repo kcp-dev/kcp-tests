@@ -1,0 +1,27 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: bind-apiexport-spi
+rules:
+- apiGroups:
+  - apis.kcp.dev
+  resourceNames:
+  - today-cowboys
+  resources:
+  - apiexports
+  verbs:
+  - bind
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: bind-apiexport-spi
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: bind-apiexport-spi
+subjects:
+- apiGroup: rbac.authorization.k8s.io
+  kind: Group
+  name: system:authenticated

@@ -1,0 +1,7 @@
+apiVersion: apis.kcp.dev/v1alpha1
+kind: APIExport
+metadata:
+  name: today-cowboys
+spec:
+  latestResourceSchemas: 
+    - today.cowboys.wildwest.dev

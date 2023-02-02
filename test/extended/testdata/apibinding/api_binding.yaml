@@ -1,0 +1,8 @@
+apiVersion: apis.kcp.dev/v1alpha1
+kind: APIBinding
+metadata:
+  name: cowboys
+spec:
+  reference:
+    workspace:
+      exportName: today-cowboys
