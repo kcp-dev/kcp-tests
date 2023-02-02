@@ -16,6 +16,7 @@ var _ = g.Describe("[area/quota]", func() {
 		k = exutil.NewCLIWithWorkSpace("kcp-quota")
 	)
 
+	// author: zxiao@redhat.com
 	g.It("Author:zxiao-Critical-[API] Verify that quota works for cluster-scoped resources across all namespaces in the workspace", func() {
 		g.By("# Create test workspace")
 		k.SetupWorkSpace()

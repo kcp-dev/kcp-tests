@@ -7,6 +7,7 @@ import (
 
 	g "github.com/onsi/ginkgo"
 	o "github.com/onsi/gomega"
+	e2e "k8s.io/kubernetes/test/e2e/framework"
 
 	exutil "github.com/kcp-dev/kcp-tests/test/extended/util"
 )
@@ -114,5 +115,42 @@ var _ = g.Describe("[area/workspaces]", func() {
 		output, err := k.WithoutWorkSpaceServer().Run("kcp").Args("workspace", "create-context", workSpace.Name, "--server="+workSpace.ParentServerURL).Output()
 		o.Expect(err).To(o.HaveOccurred())
 		o.Expect(output).To(o.ContainSubstring("already exists in kubeconfig"))
+	})
+
+	// author: zxiao@redhat.com
+	g.It("Author:zxiao-Low-[API] Can perform basic commands on custom resources using workspace URL", func() {
+		g.By("# Create a test workspace")
+		k.SetupWorkSpace()
+		serverURL := k.WorkSpace().ServerURL
+
+		g.By("# Create an APIResourceSchema in the test workspace")
+		rsName := "v1.widgets.example.io"
+		resourceName := "apiresourceschema.apis.kcp.dev/" + rsName
+		rsTemplate := exutil.FixturePath("testdata", "workspace", "api_rs.yaml")
+		_, err := exutil.CreateResourceFromTemplate(k, rsTemplate)
+		o.Expect(err).NotTo(o.HaveOccurred())
+
+		g.By("# Enter parent workspace")
+		err = k.Run("kcp").Args("workspace", "..").Execute()
+		o.Expect(err).NotTo(o.HaveOccurred())
+
+		g.By("# Test get command on the custom resource")
+		output, err := k.WithoutWorkSpaceServer().Run("get").Args(resourceName, "--server="+serverURL).Output()
+		o.Expect(err).NotTo(o.HaveOccurred())
+		o.Expect(output).Should(o.ContainSubstring(rsName))
+
+		g.By("# Test delete command on the custom resource")
+		err = k.WithoutWorkSpaceServer().Run("delete").Args(resourceName, "--server="+serverURL).Execute()
+		o.Expect(err).NotTo(o.HaveOccurred())
+
+		g.By("# Run get command on the custom resource")
+		o.Eventually(func() string {
+			output, err = k.WithoutWorkSpaceServer().Run("get").Args(resourceName, "--server="+serverURL).Output()
+			if err != nil {
+				e2e.Logf("Get %s failed of: %v", resourceName, err)
+				return "get command failed, try again"
+			}
+			return output
+		}, 60*time.Second, 5*time.Second).Should(o.ContainSubstring("not found"))
 	})
 })
