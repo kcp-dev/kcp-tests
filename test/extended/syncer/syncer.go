@@ -73,4 +73,60 @@ var _ = g.Describe("[area/transparent-multi-cluster]", func() {
 			return allDeploys
 		}, 180*time.Second, 5*time.Second).ShouldNot(o.ContainSubstring(myDeployment.Name))
 	})
+
+	g.It("Author:pewang-Critical-[Smoke][BYO] Validate kcp is source of truth", func() {
+		pclusterKubeconfig := os.Getenv("PCLUSTER_KUBECONFIG")
+		if pclusterKubeconfig == "" {
+			g.Skip("No pcluster kubeconfig set for the test scenario")
+		}
+		k.SetupWorkSpaceWithNamespace()
+		myWs := k.WorkSpace()
+		k.SetPClusterKubeconf(pclusterKubeconfig)
+
+		g.By("# Create workload sync and generate syncer resources manifests in current workspace")
+		mySyncer := NewSyncTarget()
+		mySyncer.OutputFilePath = "/tmp/" + myWs.Name + "." + mySyncer.Name + ".yaml"
+		mySyncer.Create(k)
+		defer mySyncer.Clean(k)
+
+		g.By("# Apply syncer resources on pcluster and wait for synctarget become ready")
+		defer k.AsPClusterKubeconf().WithoutNamespace().WithoutWorkSpaceServer().Run("delete").Args("-f", mySyncer.OutputFilePath).Execute()
+		err := k.AsPClusterKubeconf().WithoutNamespace().WithoutWorkSpaceServer().Run("apply").Args("-f", mySyncer.OutputFilePath).Execute()
+		o.Expect(err).ShouldNot(o.HaveOccurred())
+		mySyncer.WaitUntilReadyAndDeploymentsAPISynced(k)
+		mySyncer.CheckDisplayColumns(k)
+
+		g.By("# Creating workload using the BYO compute should work well")
+		myDeployment := exutil.NewDeployment(exutil.SetDeploymentNameSpace(myWs.CurrentNameSpace))
+		defer myDeployment.Clean(k)
+		myDeployment.Create(k)
+		myDeployment.WaitUntilReady(k)
+		myDeployment.CheckDisplayColumns(k)
+
+		g.By("# Check the deployment's status on pcluster")
+		myDeploymentOnPcluster := myDeployment.GetPclusterDeploy(k)
+		o.Expect(myDeploymentOnPcluster.GetReplicasNum(k.AsPClusterKubeconf())).Should(o.Equal("1"))
+
+		g.By("# Delete the deployment on Pcluster")
+		myDeploymentOnPcluster.Delete(k.AsPClusterKubeconf())
+
+		g.By("# Check the deployment reconciles back to ready on Pcluster")
+		myDeployment.WaitUntilReady(k)
+		o.Eventually(myDeploymentOnPcluster.GetReplicasNum(k.AsPClusterKubeconf()) == "1" && myDeployment.GetReplicasNum(k) == myDeploymentOnPcluster.GetReplicasNum(k.AsPClusterKubeconf()),
+			120*time.Second, 10*time.Second).Should(o.BeTrue())
+		myDeploymentOnPcluster.WaitUntilReady(k.AsPClusterKubeconf())
+
+		g.By("# Delete the workload and verify the deployment is no longer present in the pcluster")
+		myDeployment.Delete(k)
+		// Wait for the deployment deleted under the workspace's namespace
+		o.Eventually(func() string {
+			depInfo, _ := k.WithoutNamespace().WithoutKubeconf().Run("get").Args("deployment", myDeployment.Name, "-n", myDeployment.Namespace).Output()
+			return depInfo
+		}, 120*time.Second, 10*time.Second).Should(o.ContainSubstring("not found"))
+		// Verify the deployment is no longer present in the pcluster
+		o.Eventually(func() string {
+			depInfoOnPcluster, _ := k.AsPClusterKubeconf().WithoutNamespace().WithoutWorkSpaceServer().Run("get").Args("deployment", myDeploymentOnPcluster.Name, "-n", myDeploymentOnPcluster.Namespace).Output()
+			return depInfoOnPcluster
+		}, 120*time.Second, 10*time.Second).Should(o.ContainSubstring("not found"))
+	})
 })

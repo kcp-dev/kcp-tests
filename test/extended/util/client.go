@@ -302,7 +302,9 @@ func (c CLI) WithoutWorkSpaceServer() *CLI {
 
 // WithoutKubeconf instructs the command should be invoked without adding --kubeconfig parameter
 func (c CLI) WithoutKubeconf() *CLI {
-	c.withoutKubeconf = true
+	if !c.asPClusterKubeconf {
+		c.withoutKubeconf = true
+	}
 	return &c
 }
 

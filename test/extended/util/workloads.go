@@ -166,3 +166,18 @@ func (dep *Deployment) CheckDisplayColumns(k *CLI) {
 	attributesValues := strings.Fields(strings.TrimSpace(displayLines[1]))
 	o.Expect(len(schemaAttributes)).Should(o.Equal(len(attributesValues)))
 }
+
+// GetPclusterDeploy gets the deployment synced to pcluster object
+func (dep *Deployment) GetPclusterDeploy(k *CLI) (pDeploy *Deployment) {
+	var err error
+	pDeploy = &Deployment{
+		Name:      dep.Name,
+		Namespace: "",
+		Replicas:  dep.Replicas,
+		AppLabel:  dep.AppLabel,
+		Image:     dep.Image,
+	}
+	pDeploy.Namespace, err = k.AsPClusterKubeconf().WithoutNamespace().WithoutWorkSpaceServer().Run("get").Args("deployment", "-A", `-o=jsonpath={.items[?(@.metadata.name=="`+dep.Name+`")].metadata.namespace}`).Output()
+	o.Expect(err).NotTo(o.HaveOccurred())
+	return pDeploy
+}
