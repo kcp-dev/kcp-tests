@@ -79,4 +79,30 @@ var _ = g.Describe("[area/apiexports]", func() {
 		_, err = exutil.CreateResourceFromTemplate(k, cowboyTemplate)
 		o.Expect(err).NotTo(o.HaveOccurred())
 	})
+
+	g.It("Author:zxiao-Critical-[API] Verify that user can perform wildcard search via APIExport virtual workspace", func() {
+		g.By("# Create a test workspace")
+		k.SetupWorkSpace()
+
+		g.By("# Create custom resource cowboy using APIResourceSchema")
+		rsTemplate := exutil.FixturePath("testdata", "apibinding", "api_rs.yaml")
+		_, err := exutil.CreateResourceFromTemplate(k, rsTemplate)
+		o.Expect(err).NotTo(o.HaveOccurred())
+
+		g.By("# Create APIExport for custom resource ")
+		exportTemplate := exutil.FixturePath("testdata", "apibinding", "api_export.yaml")
+		_, err = exutil.CreateResourceFromTemplate(k, exportTemplate)
+		o.Expect(err).NotTo(o.HaveOccurred())
+
+		g.By("# Get APIExport virtual workspace URL")
+		workspaceURL, err := k.Run("get").Args("apiexport.apis.kcp.dev/today-cowboys", "-o", "jsonpath={.status.virtualWorkspaces[*].url}").Output()
+		o.Expect(err).NotTo(o.HaveOccurred())
+		// append wildcard cluster search URL
+		workspaceURL = workspaceURL + "/clusters/*/"
+
+		g.By("# Execute virtual workspace URL wildcard search")
+		output, err := k.WithoutWorkSpaceServer().Run("--server=" + workspaceURL).Args("api-resources").Output()
+		o.Expect(err).NotTo(o.HaveOccurred())
+		o.Expect(output).To(o.ContainSubstring("wildwest.dev/v1alpha1"))
+	})
 })
