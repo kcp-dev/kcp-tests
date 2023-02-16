@@ -3,6 +3,7 @@ package apibinding
 import (
 	"fmt"
 
+	g "github.com/onsi/ginkgo"
 	o "github.com/onsi/gomega"
 
 	exutil "github.com/kcp-dev/kcp-tests/test/extended/util"
@@ -99,4 +100,12 @@ func (apb *APIBinding) Delete(k *exutil.CLI) {
 // Clean the APIBinding resource
 func (apb *APIBinding) Clean(k *exutil.CLI) error {
 	return k.WithoutNamespace().WithoutKubeconf().Run("delete").Args("apibinding", apb.Metadata.Name).Execute()
+}
+
+func applyAPIBindingHack(k *exutil.CLI) {
+	// BUG: https://github.com/kcp-dev/kcp/issues/1939
+	g.By("# BUG: apply role binding hack to allow api-binding for non-admin user")
+	roleHackTemplate := exutil.FixturePath("testdata", "apibinding", "role_hack.yaml")
+	_, err := exutil.CreateResourceFromTemplate(k, roleHackTemplate)
+	o.Expect(err).NotTo(o.HaveOccurred())
 }
