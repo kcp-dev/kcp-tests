@@ -1,6 +1,8 @@
 package apibinding
 
 import (
+	"path/filepath"
+
 	g "github.com/onsi/ginkgo"
 	o "github.com/onsi/gomega"
 
@@ -59,10 +61,7 @@ var _ = g.Describe("[area/apiexports]", func() {
 		o.Expect(err).NotTo(o.HaveOccurred())
 
 		// BUG: https://github.com/kcp-dev/kcp/issues/1939
-		g.By("# BUG: apply role binding hack to allow api-binding for non-admin user")
-		roleHackTemplate := exutil.FixturePath("testdata", "apibinding", "role_hack.yaml")
-		_, err = exutil.CreateResourceFromTemplate(k, roleHackTemplate)
-		o.Expect(err).NotTo(o.HaveOccurred())
+		applyAPIBindingHack(k)
 
 		g.By("# Create APIBinding for custom resource cowboy")
 		bindingTemplate := exutil.FixturePath("testdata", "apibinding", "api_binding.yaml")
@@ -104,5 +103,44 @@ var _ = g.Describe("[area/apiexports]", func() {
 		output, err := k.WithoutWorkSpaceServer().Run("--server=" + workspaceURL).Args("api-resources").Output()
 		o.Expect(err).NotTo(o.HaveOccurred())
 		o.Expect(output).To(o.ContainSubstring("wildwest.dev/v1alpha1"))
+	})
+
+	g.It("Author:zxiao-Critical-[API] Verify that trying to bind apiexport command works as expected for custom resource", func() {
+		g.By("# Create a test workspace")
+		k.SetupWorkSpace()
+
+		g.By("# Create cowboy custom resource APIResourceSchema")
+		rsTemplate := exutil.FixturePath("testdata", "apibinding", "api_rs.yaml")
+		_, err := exutil.CreateResourceFromTemplate(k, rsTemplate)
+		o.Expect(err).NotTo(o.HaveOccurred())
+
+		g.By("# Create APIExport for custom resource")
+		exportTemplate := exutil.FixturePath("testdata", "apibinding", "api_export.yaml")
+		_, err = exutil.CreateResourceFromTemplate(k, exportTemplate)
+		o.Expect(err).NotTo(o.HaveOccurred())
+
+		// BUG: https://github.com/kcp-dev/kcp/issues/1939
+		applyAPIBindingHack(k)
+
+		g.By("# Create APIBinding for custom resource using bind apiexport command")
+		apiexportName := "today-cowboys"
+		serverURL := k.WorkSpace().ServerURL
+		workspaceFullName := filepath.Base(serverURL)
+		err = k.Run("kcp").Args("bind", "apiexport", workspaceFullName+":"+apiexportName).Execute()
+		o.Expect(err).NotTo(o.HaveOccurred())
+
+		g.By("# Check if custom resource is available")
+		output, err := k.Run("api-resources").Output()
+		o.Expect(err).NotTo(o.HaveOccurred())
+		o.Expect(output).To(o.ContainSubstring("cowboy"))
+
+		g.By("# Create cowboy custom resource object")
+		cowboyTemplate := exutil.FixturePath("testdata", "apibinding", "cowboy.yaml")
+		_, err = exutil.CreateResourceFromTemplate(k, cowboyTemplate)
+		o.Expect(err).NotTo(o.HaveOccurred())
+
+		g.By("# Attempt to run bind apiexport command on non-exiting destination, expect failure")
+		err = k.Run("kcp").Args("bind", "apiexport", "false-destination").Execute()
+		o.Expect(err).To(o.HaveOccurred())
 	})
 })
